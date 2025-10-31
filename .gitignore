@@ -6,10 +6,14 @@ __pycache__/
 ai-env/
 *.env
 
-# Model files (optional: keep large binaries out of repo)
+# Model files (large binaries)
 *.gguf
 *.safetensors
 
-# Logs
+# Logs and outputs
 conversation.log
 output/
+
+# Any temporary files
+*.tmp
+
