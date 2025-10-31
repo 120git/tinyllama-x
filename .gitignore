@@ -1,19 +1,30 @@
-# Python
-*.pyc
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
 
-# Virtual environment
+# Virtual environments
 ai-env/
+.venv/
+.env
 *.env
-
-# Model files (large binaries)
-*.gguf
-*.safetensors
 
 # Logs and outputs
 conversation.log
 output/
 
-# Any temporary files
-*.tmp
+# Model files (large binaries)
+*.gguf
+*.safetensors
+*.bin
 
+# System files
+.DS_Store
+Thumbs.db
+
+# VSCode / IDE configs
+.vscode/
+.idea/
+
+# Temporary zips or archives
+*.zip
