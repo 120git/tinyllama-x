@@ -1,0 +1,15 @@
+# Python
+*.pyc
+__pycache__/
+
+# Virtual environment
+ai-env/
+*.env
+
+# Model files (optional: keep large binaries out of repo)
+*.gguf
+*.safetensors
+
+# Logs
+conversation.log
+output/
