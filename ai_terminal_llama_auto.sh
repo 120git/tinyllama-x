@@ -1,18 +1,21 @@
-#!/bin/bash
-# TinyLlama-X Terminal AI with Auto-Update
-# Author: You
-# Usage: ./ai_terminal_llama_auto.sh
+#!/usr/bin/env bash
+# ===============================================================
+# 🧠 TinyLlama-X Interactive AI Terminal
+# Author: 120git
+# Version: v4.2.0
+# Description: Interactive AI chat assistant for Linux terminal.
+# ===============================================================
 
-# ===== CONFIGURATION =====
-MODEL_DIR="$HOME/tinyllama-x/models"
-MODEL_FILE="tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
+# === CONFIGURATION ===
+MODEL_PATH="$HOME/tinyllama-x/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 LOG_FILE="$HOME/tinyllama-x/conversation.log"
 THREADS=6
 CONTEXT=2048
+VENV_PATH="$HOME/ai-env"
 
-# ===== ASCII BANNER =====
-cat << 'EOF'
+# === ASCII TITLE ===
+clear
+cat << "EOF"
 ████████╗██╗     ██╗      ██╗        ███████╗██╗  ██╗
 ╚══██╔══╝██║     ██║      ██║        ██╔════╝██║ ██╔╝
    ██║   ██║     ██║      ██║        █████╗  █████╔╝ 
@@ -22,82 +25,87 @@ cat << 'EOF'
                      TL <- X ->
 
                   Termininja Engaged
+===============================================================
 EOF
 
-# ===== ENSURE MODEL DIR =====
-mkdir -p "$MODEL_DIR"
-
-# ===== AUTO-UPDATE MODEL =====
-HUGGINGFACE_URL="https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/$MODEL_FILE"
-echo "🔄 Checking for TinyLlama model..."
+# === VALIDATION ===
 if [ ! -f "$MODEL_PATH" ]; then
-    echo "Downloading model..."
-    wget -O "$MODEL_PATH" "$HUGGINGFACE_URL"
-elif [ -f "$MODEL_PATH" ]; then
-    echo "Model exists. Checking for updates..."
-    wget -N -O "$MODEL_PATH" "$HUGGINGFACE_URL"
+    echo "❌ Model not found at: $MODEL_PATH"
+    echo "Please ensure TinyLlama GGUF model is downloaded correctly."
+    read -rp "Press Enter to exit..."
+    exit 1
 fi
 
-# ===== VIRTUAL ENV CHECK =====
-if [ ! -d "$HOME/ai-env" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv "$HOME/ai-env"
-    source "$HOME/ai-env/bin/activate"
-    pip install --upgrade pip
-    pip install llama-cpp-python
-else
-    source "$HOME/ai-env/bin/activate"
+# === SETUP PYTHON ENVIRONMENT ===
+if [ ! -d "$VENV_PATH" ]; then
+    echo "⚙️  Creating Python environment..."
+    python3 -m venv "$VENV_PATH"
 fi
 
-# ===== PYTHON CHAT LOOP =====
-python3 << EOF
+source "$VENV_PATH/bin/activate"
+
+pip install --quiet --upgrade pip
+pip install --quiet llama-cpp-python colorama
+
+# === LOG ROTATION (KEEP LAST 7 SESSIONS) ===
+if [ -f "$LOG_FILE" ]; then
+    mv "$LOG_FILE" "$LOG_FILE.$(date +%Y%m%d-%H%M%S)"
+    ls -t "$HOME"/tinyllama-x/conversation.log.* 2>/dev/null | tail -n +8 | xargs -r rm --
+fi
+
+# === RUN PYTHON CHAT INTERFACE ===
+python3 << 'EOF'
+import os, datetime, sys
+from colorama import Fore, Style, init
 from llama_cpp import Llama
-import readline, os
 
-MODEL_PATH = os.path.expanduser("$MODEL_PATH")
-LOG_FILE = os.path.expanduser("$LOG_FILE")
-THREADS = $THREADS
-CONTEXT = $CONTEXT
+init(autoreset=True)
 
-print("🔹 Loading TinyLlama model, please wait...")
-llm = Llama(model_path=MODEL_PATH, n_ctx=CONTEXT, n_threads=THREADS)
+MODEL_PATH = os.path.expanduser("~/tinyllama-x/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf")
+LOG_FILE = os.path.expanduser("~/tinyllama-x/conversation.log")
 
-history = []
-print("\n🤖 TinyLlama Chat is ready! Type 'exit' to quit.\n")
+print(Fore.YELLOW + "\n🔹 Loading TinyLlama model, please wait...\n")
+llm = Llama(model_path=MODEL_PATH, n_ctx=2048, n_threads=6)
 
+print(Fore.GREEN + "\n🤖 TinyLlama Chat is ready! Type 'exit' to quit.\n")
+
+# Log session start
+with open(LOG_FILE, "a") as f:
+    f.write(f"\n=== New Session: {datetime.datetime.now()} ===\n")
+
+# Chat loop
 while True:
     try:
-        user_input = input("🧑 You: ").strip()
+        sys.stdout.write(Fore.CYAN + "🧑 You: " + Style.RESET_ALL)
+        sys.stdout.flush()
+
+        user_input = sys.stdin.readline().strip()
+        if not user_input:
+            print(Fore.RED + "(No input detected — type something or 'exit')")
+            continue
         if user_input.lower() in ["exit", "quit"]:
-            print("👋 Goodbye!")
+            print(Fore.MAGENTA + "👋 Goodbye, ninja.")
             break
 
-        if not user_input:
-            continue
-
-        if history and user_input == history[-1]['user']:
-            print("⚠️ You already asked this. Try a different question.")
-            continue
-
-        response = llm(user_input, max_tokens=256)
-        output_text = response['choices'][0]['text'].strip()
-
-        if history and output_text == history[-1]['ai']:
-            output_text += " [↻ repeated content skipped]"
-
-        print(f"🤖 TinyLlama: {output_text}\n")
+        response = llm.create_chat_completion(
+            messages=[{"role": "user", "content": user_input}],
+            max_tokens=256,
+            temperature=0.7
+        )
+        reply = response["choices"][0]["message"]["content"].strip()
+        print(Fore.GREEN + f"\n🤖 TinyLlama: " + Style.RESET_ALL + reply + "\n")
 
         with open(LOG_FILE, "a") as f:
-            f.write(f"You: {user_input}\nAI: {output_text}\n\n")
+            f.write(f"You: {user_input}\nTinyLlama: {reply}\n")
 
-        history.append({'user': user_input, 'ai': output_text})
-        if len(history) > 20:
-            history.pop(0)
-
-    except EOFError:
-        print("\n👋 Goodbye!")
-        break
     except KeyboardInterrupt:
-        print("\n👋 Interrupted, exiting...")
+        print(Fore.RED + "\n🛑 Interrupted by user.")
+        break
+    except EOFError:
+        print(Fore.RED + "\n⚠️ EOF detected (no TTY input). Keeping window open.")
+        input("Press Enter to close... ")
         break
 EOF
+
+# Keep terminal open if launched from GUI
+read -rp "Press Enter to close TinyLlama-X..."
