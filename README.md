@@ -10,7 +10,8 @@ TinyLlama-X is a lightweight, local AI terminal chat for Linux using TinyLlama m
 
 - Text generation and terminal chat via TinyLlama
 - Runs fully local (CPU, via llama-cpp-python)
-- Multiple launch scripts (auto/simple)
+- Intelligent assistant (smart): intent-aware, distro adapters, TLDR/man explain, safe propose→confirm→simulate→run
+- Multiple launch scripts with smart-first preference (CLI auto-selects)
 - Ubuntu desktop integration (menu launcher + icon)
 
 ---
@@ -43,12 +44,22 @@ mkdir -p ~/tinyllama-x
 4) Run the app
 
 ```bash
+./bin/tinyllama-x        # preferred (auto-selects smartest launcher)
+# or run smart assistant directly
+./ai_terminal_llama_smart.sh
+# or legacy launchers
 ./ai_terminal_llama_auto.sh
-# or
 ./ai_terminal_llama.sh
 ```
 
 Type "exit" to quit.
+
+Version/help:
+
+```bash
+./bin/tinyllama-x --version
+./bin/tinyllama-x --help
+```
 
 ---
 
@@ -90,7 +101,7 @@ bash scripts/uninstall_ubuntu.sh
 
 ---
 
-## � Key files
+## 📦 Key files
 
 ```
 tinyllama-x/
@@ -101,9 +112,19 @@ tinyllama-x/
 │  └─ uninstall_ubuntu.sh         # Uninstaller (system/user)
 ├─ resources/
 │  └─ tinyllama-x.desktop         # Desktop entry template
-├─ ai_terminal_llama_auto.sh      # Auto-start Llama script (recommended)
+├─ ai_terminal_llama_smart.sh     # Intelligent assistant entry (intent/RAG/safe exec)
+├─ ai_terminal_llama_auto.sh      # Auto-start Llama script
 ├─ ai_terminal_llama.sh           # Chat launcher
 ├─ ai_terminal.sh                 # Demo menu launcher
+├─ lib/                           # Intelligence modules (intent, distro, adapters, RAG, executor, history)
+│  ├─ intent.py
+│  ├─ distro.py
+│  ├─ pm_adapter.py
+│  ├─ rag.py
+│  ├─ executor.py
+│  └─ history.py
+├─ tinyllama_x_smart.py           # Smart assistant Python loop
+├─ INTELLIGENCE.md                # Smart assistant docs
 ├─ run-llama.py                   # Python-based runner (older)
 ├─ run-tinyllama.py               # Python-based runner (older)
 ├─ requirements.txt
@@ -118,6 +139,8 @@ tinyllama-x/
 - Keep large model files out of Git (use .gitignore).
 - Update pip/Python for best performance.
 - Optimized for Linux; macOS may work with minor tweaks.
+
+For details about the intelligent assistant (intents, risk levels, TLDR/man integration, history), see `INTELLIGENCE.md`.
 
 ---
 

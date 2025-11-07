@@ -1,156 +1,125 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-<<<<<<< HEAD
-# tinyllama-x CLI launcher
-# Resolves install dir (env override -> system -> user), tolerating case variants.
-resolve_app_dir() {
-  local candidate
-  # 1) Explicit override
-  if [[ -n "${TINYLLAMA_X_DIR:-}" && -d "$TINYLLAMA_X_DIR" ]]; then
-    echo "$TINYLLAMA_X_DIR"; return 0
-  fi
-  # 2) System locations
-  for candidate in \
-    "/opt/TinyLlama-X" \
-    "/opt/tinyllama-x"; do
-    [[ -d "$candidate" ]] && { echo "$candidate"; return 0; }
-  done
-  # 3) User locations
-  for candidate in \
-    "$HOME/.local/share/TinyLlama-X" \
-    "$HOME/.local/share/tinyllama-x"; do
-    [[ -d "$candidate" ]] && { echo "$candidate"; return 0; }
-  done
-  return 1
-}
-
-APP_DIR="$(resolve_app_dir || true)"
-if [[ -z "$APP_DIR" ]]; then
-  echo "Error: TinyLlama-X is not installed. Try: bash scripts/install_ubuntu.sh --user" >&2
-  exit 1
-fi
-
-# Prefer the auto-updating script; fallback to simple
-find_entry() {
-  local name="$1"; shift || true
-  local p
-  for p in \
-    "$APP_DIR/tinyllama-x/tinyllama-x/$name" \
-    "$APP_DIR/tinyllama-x/$name" \
-    "$APP_DIR/$name"; do
-    [[ -x "$p" && -s "$p" ]] && { echo "$p"; return 0; }
-  done
-  return 1
-}
-
-if entry="$(find_entry ai_terminal_llama_auto.sh)"; then
-  exec "$entry" "$@"
-elif entry="$(find_entry ai_terminal_llama_simple.sh)"; then
-  exec "$entry" "$@"
-else
-  echo "Error: Launch scripts not found under $APP_DIR" >&2
-  exit 1
-fi
-=======
-# TinyLlama-X global CLI launcher
-# Resolves install directory and launches the most capable available script.
+# TinyLlama-X unified CLI launcher with version/help support
+# Preference order: smart -> auto -> simple -> classic.
 
 log() { printf "%s\n" "$*"; }
 err() { printf "Error: %s\n" "$*" >&2; }
 
-# 1) Resolve install dir
-resolve_app_dir() {
-  # If caller hints the dir, prefer that
-  if [[ -n "${TINYLLAMA_X_DIR:-}" && -d "$TINYLLAMA_X_DIR" ]]; then
-    printf "%s" "$TINYLLAMA_X_DIR"
-    return 0
-  fi
+SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" 2>/dev/null && pwd)"
 
-  # Common system/user install locations
+get_version() {
+  local v
+  if command -v git >/dev/null 2>&1; then
+    if v=$(git -C "$SCRIPT_DIR" describe --tags --dirty --always 2>/dev/null); then
+      printf "%s" "$v"; return 0
+    fi
+    # Try parent (installed layout may put bin/ in root)
+    if v=$(git -C "$SCRIPT_DIR/.." describe --tags --dirty --always 2>/dev/null); then
+      printf "%s" "$v"; return 0
+    fi
+  fi
+  if [[ -f "$SCRIPT_DIR/.tinyllama_version" ]]; then
+    cat "$SCRIPT_DIR/.tinyllama_version"; return 0
+  fi
+  date +%Y.%m.%d
+}
+
+print_usage() {
+  cat <<EOF
+TinyLlama-X CLI
+
+Usage: tinyllama-x [options] [-- underlying-script-args]
+
+Options:
+  -h, --help       Show this help
+  -v, --version    Show version info
+
+Description:
+  Locally hosted TinyLlama assistant. Automatically selects the most
+  capable launcher script available (smart intent assistant preferred).
+
+Environment overrides:
+  TINYLLAMA_X_DIR      Install or repo directory
+  TINYLLAMA_X_MODEL    Absolute path to GGUF model
+  TINYLLAMA_X_VENV     Python virtualenv path
+EOF
+}
+
+resolve_app_dir() {
+  if [[ -n "${TINYLLAMA_X_DIR:-}" && -d "$TINYLLAMA_X_DIR" ]]; then
+    printf "%s" "$TINYLLAMA_X_DIR"; return 0
+  fi
   local candidates=(
     "/opt/TinyLlama-X"
     "$HOME/.local/share/TinyLlama-X"
     "/opt/tinyllama-x"
     "$HOME/.local/share/tinyllama-x"
   )
-
   for d in "${candidates[@]}"; do
-    if [[ -d "$d" ]]; then
-      printf "%s" "$d"
-      return 0
-    fi
+    [[ -d "$d" ]] && { printf "%s" "$d"; return 0; }
   done
+  # Fallback to repo checkout parent directory
+  printf "%s" "$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd)"
+}
 
-  # Fallback: if running from repo checkout (relative launch)
-  local here
-  here="$(cd "${BASH_SOURCE[0]%/*}" 2>/dev/null && pwd)"
-  if [[ -d "$here/.." ]]; then
-    printf "%s" "$(cd "$here/.." && pwd)"
-    return 0
-  fi
+is_executable_nonempty() { [[ -s "$1" && ( -x "$1" || -r "$1" ) ]]; }
 
+find_first() {
+  local base="$1"; shift
+  local name p
+  for name in "$@"; do
+    for p in \
+      "$base/$name" \
+      "$base/tinyllama-x/$name" \
+      "$base/tinyllama-x/tinyllama-x/$name"; do
+      if is_executable_nonempty "$p"; then
+        printf "%s" "$p"; return 0
+      fi
+    done
+  done
   return 1
 }
 
-is_executable_nonempty() {
-  local f="$1"
-  [[ -s "$f" ]] && [[ -x "$f" || -r "$f" ]]
-}
-
-find_entry_script() {
-  local base="$1"
-
-  # Prefer the richer auto script when present
-  local try_auto=(
-    "$base/ai_terminal_llama_auto.sh"
-    "$base/tinyllama-x/ai_terminal_llama_auto.sh"
-    "$base/tinyllama-x/tinyllama-x/ai_terminal_llama_auto.sh"
-  )
-
-  for f in "${try_auto[@]}"; do
-    if is_executable_nonempty "$f"; then
-      printf "%s" "$f"; return 0
-    fi
+handle_args() {
+  local passthrough=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help|help)
+        print_usage; exit 0 ;;
+      -v|--version|version)
+        echo "TinyLlama-X $(get_version)"; exit 0 ;;
+      --) shift; passthrough+=("$@"); break ;;
+      *) passthrough+=("$1") ;;
+    esac
+    shift || true
   done
-
-  # Fallbacks
-  local try_simple=(
-    "$base/ai_terminal_llama_simple.sh"
-    "$base/ai_terminal_llama.sh"
-    "$base/ai_terminal.sh"
-  )
-
-  for f in "${try_simple[@]}"; do
-    if is_executable_nonempty "$f"; then
-      printf "%s" "$f"; return 0
-    fi
-  done
-
-  return 1
+  printf '%s\n' "${passthrough[@]}" | sed '/^$/d'
 }
 
 main() {
+  local args
+  # Capture processed args (newline separated); convert to array
+  mapfile -t args < <(handle_args "$@")
+
   local app_dir
-  if ! app_dir="$(resolve_app_dir)"; then
-    err "Unable to locate TinyLlama-X install directory. Set TINYLLAMA_X_DIR to your install path."
-    exit 1
-  fi
+  app_dir="$(resolve_app_dir)"
 
   local entry
-  if ! entry="$(find_entry_script "$app_dir")"; then
-    err "No suitable launcher script found under: $app_dir"
+  if ! entry="$(find_first "$app_dir" \
+      ai_terminal_llama_smart.sh \
+      ai_terminal_llama_auto.sh \
+      ai_terminal_llama_simple.sh \
+      ai_terminal_llama.sh \
+      ai_terminal.sh)"; then
+    err "No suitable launcher script found under $app_dir"
     exit 1
   fi
 
-  # Ensure it's executable if possible
-  if [[ ! -x "$entry" ]]; then
-    chmod +x "$entry" 2>/dev/null || true
-  fi
-
-  log "Starting TinyLlama-X..."
-  exec bash "$entry" "$@"
+  chmod +x "$entry" 2>/dev/null || true
+  log "Starting TinyLlama-X (version: $(get_version)) via $(basename "$entry")..."
+  exec bash "$entry" "${args[@]}"
 }
 
 main "$@"
->>>>>>> 12c0382 (Intelligent assistant: add smart modules, smart launcher, docs; CLI now prefers smart script.)
