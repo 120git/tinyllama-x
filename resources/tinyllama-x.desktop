@@ -8,5 +8,6 @@ Exec=tinyllama-x
 TryExec=tinyllama-x
 Icon=tinyllama-x
 Terminal=true
+StartupNotify=true
 Categories=Utility;Development;
 Keywords=AI;Llama;Chat;Terminal;

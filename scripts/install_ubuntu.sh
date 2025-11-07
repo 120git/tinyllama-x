@@ -59,10 +59,12 @@ $SUDO install -Dm644 "$ICON_SRC" "$ICON_DIR/$APP_NAME.png"
 $SUDO mkdir -p "$APPS_DIR"
 # Copy and ensure it references our CLI and icon name
 TMP_DESKTOP="/tmp/${APP_NAME}.desktop"
-sed -e "s#^Exec=.*#Exec=$APP_NAME#g" \
-    -e "s#^TryExec=.*#TryExec=$APP_NAME#g" \
-    -e "s#^Icon=.*#Icon=$APP_NAME#g" \
-    "$DESKTOP_SRC" > "$TMP_DESKTOP"
+# Hint the runtime app dir to the CLI via environment so it doesn't need to guess
+SED_EXEC="Exec=env TINYLLAMA_X_DIR=$APP_DIR $APP_NAME"
+sed -e "s#^Exec=.*#$SED_EXEC#g" \
+  -e "s#^TryExec=.*#TryExec=$APP_NAME#g" \
+  -e "s#^Icon=.*#Icon=$APP_NAME#g" \
+  "$DESKTOP_SRC" > "$TMP_DESKTOP"
 $SUDO install -Dm644 "$TMP_DESKTOP" "$APPS_DIR/${APP_NAME}.desktop"
 rm -f "$TMP_DESKTOP"
 
