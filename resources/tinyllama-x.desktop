@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TinyLlama-X
+GenericName=Terminal AI Assistant
+Comment=Chat with TinyLlama locally in your terminal
+Exec=tinyllama-x
+TryExec=tinyllama-x
+Icon=tinyllama-x
+Terminal=true
+Categories=Utility;Development;
+Keywords=AI;Llama;Chat;Terminal;
