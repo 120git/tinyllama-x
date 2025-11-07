@@ -1,93 +1,111 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# TinyLlama-X Ubuntu installer
-# Installs CLI, desktop entry, and icon for user (~/.local) or system (/usr/local, /opt)
+# TinyLlama-X Ubuntu/Debian installer
 
-MODE="user" # default
-if [[ ${1:-} == "--system" ]]; then
+usage() {
+  cat <<EOF
+Usage: $0 [--system | --user]
+
+Installs TinyLlama-X CLI, desktop entry, and icon.
+
+Options:
+  --system   Install for all users (requires sudo)
+  --user     Install for current user (default)
+EOF
+}
+
+MODE="user"
+if [[ "${1:-}" == "--system" ]]; then
   MODE="system"
-elif [[ ${1:-} == "--user" ]]; then
+elif [[ "${1:-}" == "--user" || -z "${1:-}" ]]; then
   MODE="user"
+elif [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage; exit 0
+else
+  usage; exit 1
 fi
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="tinyllama-x"
-ICON_SRC="$REPO_DIR/TinyLlama-x_logo.png"
-DESKTOP_SRC="$REPO_DIR/resources/tinyllama-x.desktop"
-CLI_SRC="$REPO_DIR/bin/tinyllama-x"
+SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [[ ! -f "$ICON_SRC" ]]; then
-  echo "Error: icon not found at $ICON_SRC" >&2
+APP_NAME="TinyLlama-X"
+CLI_NAME="tinyllama-x"
+ICON_NAME="tinyllama-x.png"
+ICON_SRC="$REPO_DIR/TinyLlama-x_logo.png"
+DESKTOP_TEMPLATE="$REPO_DIR/resources/tinyllama-x.desktop"
+CLI_SRC="$REPO_DIR/bin/$CLI_NAME"
+
+if [[ ! -f "$CLI_SRC" ]]; then
+  echo "Error: CLI launcher not found at: $CLI_SRC" >&2
   exit 1
 fi
 
-if [[ $MODE == "system" ]]; then
-  APP_DIR="/opt/TinyLlama-X"
-  CLI_DEST="/usr/local/bin/$APP_NAME"
-  APPS_DIR="/usr/share/applications"
+if [[ ! -f "$DESKTOP_TEMPLATE" ]]; then
+  echo "Error: Desktop file template not found at: $DESKTOP_TEMPLATE" >&2
+  exit 1
+fi
+
+if [[ ! -f "$ICON_SRC" ]]; then
+  echo "Warning: Icon not found at $ICON_SRC. Proceeding without installing icon."
+fi
+
+if [[ "$MODE" == "system" ]]; then
+  APP_DIR="/opt/$APP_NAME"
+  BIN_DIR="/usr/local/bin"
+  APP_SHARE="/usr/share/applications"
   ICON_DIR="/usr/share/icons/hicolor/512x512/apps"
   SUDO=sudo
 else
-  APP_DIR="$HOME/.local/share/TinyLlama-X"
-  CLI_DEST="$HOME/.local/bin/$APP_NAME"
-  APPS_DIR="$HOME/.local/share/applications"
+  APP_DIR="$HOME/.local/share/$APP_NAME"
+  BIN_DIR="$HOME/.local/bin"
+  APP_SHARE="$HOME/.local/share/applications"
   ICON_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"
   SUDO=""
-  mkdir -p "$HOME/.local/bin"
 fi
 
-# Copy application files
-$SUDO mkdir -p "$APP_DIR"
-# Copy the entire repo contents except .git
+echo "Installing TinyLlama-X ($MODE)"
+echo "- App dir: $APP_DIR"
+echo "- Bin dir: $BIN_DIR"
+echo "- Desktop: $APP_SHARE/$CLI_NAME.desktop"
+echo "- Icon: $ICON_DIR/$ICON_NAME"
+
+# Create directories
+$SUDO mkdir -p "$APP_DIR" "$BIN_DIR" "$APP_SHARE" "$ICON_DIR"
+
+# Copy repo to app dir (rsync preferred)
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete --exclude ".git" "$REPO_DIR/" "$APP_DIR/"
+  $SUDO rsync -a --delete "$REPO_DIR/" "$APP_DIR/"
 else
-  # Fallback to cp if rsync is not available
-  $SUDO rm -rf "$APP_DIR"/* || true
-  (cd "$REPO_DIR" && tar cf - --exclude .git .) | (cd "$APP_DIR" && tar xpf -)
+  tmp_tar="$(mktemp)"
+  tar -C "$REPO_DIR" -cf "$tmp_tar" .
+  $SUDO tar -C "$APP_DIR" -xf "$tmp_tar"
+  rm -f "$tmp_tar"
 fi
+
+# Ensure main scripts are executable
+$SUDO find "$APP_DIR" -maxdepth 2 -type f -name "ai_terminal_*.sh" -exec chmod +x {} + || true
 
 # Install CLI
-$SUDO install -Dm755 "$CLI_SRC" "$CLI_DEST"
+$SUDO install -m 0755 "$CLI_SRC" "$BIN_DIR/$CLI_NAME"
 
-# Install icon (rename to match icon theme name)
-$SUDO mkdir -p "$ICON_DIR"
-$SUDO install -Dm644 "$ICON_SRC" "$ICON_DIR/$APP_NAME.png"
+# Install desktop entry (inject Exec with TINYLLAMA_X_DIR)
+DESKTOP_OUT="$(mktemp)"
+sed "s#@@EXEC@@#env TINYLLAMA_X_DIR=\"$APP_DIR\" $CLI_NAME#g" "$DESKTOP_TEMPLATE" > "$DESKTOP_OUT"
+$SUDO install -m 0644 "$DESKTOP_OUT" "$APP_SHARE/$CLI_NAME.desktop"
+rm -f "$DESKTOP_OUT"
 
-# Install desktop entry
-$SUDO mkdir -p "$APPS_DIR"
-# Copy and ensure it references our CLI and icon name
-TMP_DESKTOP="/tmp/${APP_NAME}.desktop"
-# Hint the runtime app dir to the CLI via environment so it doesn't need to guess
-SED_EXEC="Exec=env TINYLLAMA_X_DIR=$APP_DIR $APP_NAME"
-sed -e "s#^Exec=.*#$SED_EXEC#g" \
-  -e "s#^TryExec=.*#TryExec=$APP_NAME#g" \
-  -e "s#^Icon=.*#Icon=$APP_NAME#g" \
-  "$DESKTOP_SRC" > "$TMP_DESKTOP"
-$SUDO install -Dm644 "$TMP_DESKTOP" "$APPS_DIR/${APP_NAME}.desktop"
-rm -f "$TMP_DESKTOP"
-
-# Update icon cache if utility exists (optional)
-if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-  # Rebuild icon cache for hicolor theme if available
-  THEME_DIR="${ICON_DIR%/512x512/apps}"
-  $SUDO gtk-update-icon-cache -q "$THEME_DIR" || true
+# Install icon if present
+if [[ -f "$ICON_SRC" ]]; then
+  $SUDO install -m 0644 "$ICON_SRC" "$ICON_DIR/$ICON_NAME"
 fi
 
+# Update desktop and icon caches when available
 if command -v update-desktop-database >/dev/null 2>&1; then
-  $SUDO update-desktop-database "$APPS_DIR" || true
+  $SUDO update-desktop-database "$APP_SHARE" || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  $SUDO gtk-update-icon-cache -f "${ICON_DIR%/512x512/apps}/.." || true
 fi
 
-cat <<EOF
-Installed TinyLlama-X ($MODE mode):
-- App dir:   $APP_DIR
-- CLI:       $CLI_DEST
-- Desktop:   $APPS_DIR/${APP_NAME}.desktop
-- Icon:      $ICON_DIR/$APP_NAME.png
-
-Run from terminal:
-  $APP_NAME
-
-Find it in your app menu as: TinyLlama-X
-EOF
+echo "Installation complete. Try launching from your app grid or run: $CLI_NAME"
