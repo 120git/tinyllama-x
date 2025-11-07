@@ -1,3 +1,4 @@
+# ![Lucky Llama-x Logo](assets/TinyLlama-x_logo.png)
 # 🐱‍💻 TinyLlama-X
 
 **TinyLlama-X** is an all-in-one terminal AI companion for Linux, designed to assist users from **Linux newcomers to advanced users**. It leverages TinyLlama models to provide interactive AI functionality directly in your terminal, without the need for web browsers or cloud services.
