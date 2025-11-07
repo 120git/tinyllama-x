@@ -178,3 +178,17 @@ __all__ = [
     "confirm",
     "execute",
 ]
+
+
+def run_intent(intent: IntentType, distro_id: Optional[str] = None, execute_real: bool = False) -> tuple[SimulationResult, Optional[ExecutionResult]]:
+    """Helper to build a plan, run simulation, and optionally execute.
+
+    Returns a tuple of (simulation_result, execution_result_or_none).
+    """
+    plan = build_plan(intent, distro_id=distro_id)
+    sim = simulate(plan)
+    exe: Optional[ExecutionResult] = None
+    if execute_real and plan.real_cmd:
+        exe = execute(plan)
+    return sim, exe
+

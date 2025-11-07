@@ -26,7 +26,14 @@ from .core.intents import (
     UpgradeSystem,
     parse_intent,
 )
-from .core.planner import build_plan, confirm, execute, simulate
+from .core.planner import build_plan, confirm, execute, simulate, run_intent
+from .core.model import IntentDecider
+from .model_backends.ollama import OllamaBackend
+try:  # optional llama.cpp
+    from .model_backends.llamacpp import LlamaCppBackend  # type: ignore
+except Exception:  # pragma: no cover
+    LlamaCppBackend = None  # type: ignore
+from .core.prompts import build_system_prompt
 from .core.rag import explain_command as rag_explain
 from .utils.distro import parse_os_release, preferred_pkg_manager
 
@@ -201,3 +208,46 @@ def plan(
 
 if __name__ == "__main__":  # pragma: no cover
     app()
+
+
+@app.command()
+def chat(
+    user_text: str = typer.Argument(..., help="Raw user text to classify into an intent"),
+    backend: str = typer.Option("ollama", help="Backend to use: ollama|llamacpp"),
+    model: str = typer.Option("tinyllama:latest", help="Model name or path (backend-specific)"),
+    no_run: bool = typer.Option(True, "--no-run", help="Simulation only; do not attempt real execution"),
+) -> None:
+    """Ask a local model to classify user text into an intent and route it through the planner.
+
+    Safety: defaults to simulation-only. Use other commands for explicit execution flows.
+    """
+    # Instantiate backend
+    if backend == "ollama":
+        be = OllamaBackend(model=model)
+    elif backend == "llamacpp":
+        if LlamaCppBackend is None:
+            typer.echo("llama.cpp backend unavailable (library not installed)", err=True)
+            raise typer.Exit(code=1)
+        be = LlamaCppBackend(model_path=model)
+    else:
+        typer.echo(f"Unknown backend '{backend}'", err=True)
+        raise typer.Exit(code=1)
+
+    decider = IntentDecider(be)
+    try:
+        intent = decider.decide(user_text)
+    except Exception as e:
+        typer.echo(f"Failed to decide intent: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"Model intent: {intent}")
+    distro_id, _version_id = parse_os_release()
+    sim_res, exe_res = run_intent(intent, distro_id=distro_id, execute_real=not no_run)
+    typer.echo("--- Simulation Output (tail) ---")
+    typer.echo(sim_res.summary)
+    if exe_res:
+        typer.echo("--- Execution Output (tail) ---")
+        typer.echo(exe_res.summary)
+    elif not no_run and sim_res.plan.real_cmd:
+        # If execution was requested but no real command, clarify
+        typer.echo("<no real execution needed for this intent>")
