@@ -4,8 +4,11 @@ Auxiliary Python CLI package for the TinyLlama-X ecosystem.
 
 ## Features
 - Typer-based CLI (`tinyllamax` entrypoint)
-- Pydantic configuration model loading from environment (`TINYLLAMAX_` prefix)
-- Placeholder domain models for package actions and command explanation
+- Simulation-first propose → simulate → confirm → run planning flow
+- Distro detection + package manager adapters (apt, dnf, pacman, zypper, apk)
+- RAG-lite command help via TLDR/man (safe fallbacks)
+- Model-driven intent decision (Ollama or llama.cpp) with strict JSON output
+- Pydantic config via env (`TINYLLAMAX_` prefix)
 
 ## Installation (editable)
 ```bash
@@ -14,10 +17,23 @@ pip install -e .
 
 ## Usage
 ```bash
+# General
 tinyllamax --help
 tinyllamax settings
-tinyllamax explain "ls -la" --detail 2
-tinyllamax pkg install --packages htop,git
+
+# Plan an action (simulate first, optional real run with --real)
+tinyllamax plan --install htop
+tinyllamax plan --remove neovim
+tinyllamax plan --search curl
+tinyllamax plan --update
+tinyllamax plan --upgrade
+tinyllamax plan --explain "ls -la"
+
+# Feed raw JSON intent for debugging
+tinyllamax debug-intent --json '{"intent":"InstallPackage","package":"htop"}'
+
+# Step 8: Model-driven intent decision (simulation by default)
+tinyllamax chat "install htop" --backend ollama --model tinyllama:latest --no-run
 ```
 
 ## Development
