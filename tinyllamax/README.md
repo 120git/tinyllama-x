@@ -32,8 +32,8 @@ tinyllamax plan --explain "ls -la"
 # Feed raw JSON intent for debugging
 tinyllamax debug-intent --json '{"intent":"InstallPackage","package":"htop"}'
 
-# Step 8: Model-driven intent decision (simulation by default)
-tinyllamax chat "install htop" --backend ollama --model tinyllama:latest --no-run
+# Step 8: Model-driven intent decision (simulation by default; pass --run to execute)
+tinyllamax chat "install htop" --backend ollama --model tinyllama:latest
 ```
 
 ## Development

@@ -83,7 +83,7 @@ def main(verbose: bool = typer.Option(False, "--verbose", help="Enable verbose l
 @app.command()
 def settings() -> None:
     s = AppSettings()
-    for field, value in s.dict().items():
+    for field, value in s.model_dump().items():
         typer.echo(f"{field}: {value}")
 
 
@@ -206,20 +206,16 @@ def plan(
         typer.echo("(Real execution skipped; use --real to execute)")
 
 
-if __name__ == "__main__":  # pragma: no cover
-    app()
-
-
 @app.command()
 def chat(
     user_text: str = typer.Argument(..., help="Raw user text to classify into an intent"),
     backend: str = typer.Option("ollama", help="Backend to use: ollama|llamacpp"),
     model: str = typer.Option("tinyllama:latest", help="Model name or path (backend-specific)"),
-    no_run: bool = typer.Option(True, "--no-run", help="Simulation only; do not attempt real execution"),
+    run_: bool = typer.Option(False, "--run", help="After simulation, confirm and execute real command if available"),
 ) -> None:
-    """Ask a local model to classify user text into an intent and route it through the planner.
+    """Model-driven intent classification → simulate (always) → optional confirm & execute.
 
-    Safety: defaults to simulation-only. Use other commands for explicit execution flows.
+    Default is simulation-only. Pass --run to attempt real execution (will prompt for confirmation).
     """
     # Instantiate backend
     if backend == "ollama":
@@ -242,12 +238,23 @@ def chat(
 
     typer.echo(f"Model intent: {intent}")
     distro_id, _version_id = parse_os_release()
-    sim_res, exe_res = run_intent(intent, distro_id=distro_id, execute_real=not no_run)
+    # Always simulate first
+    sim_res, _ = run_intent(intent, distro_id=distro_id, execute_real=False)
     typer.echo("--- Simulation Output (tail) ---")
     typer.echo(sim_res.summary)
-    if exe_res:
-        typer.echo("--- Execution Output (tail) ---")
-        typer.echo(exe_res.summary)
-    elif not no_run and sim_res.plan.real_cmd:
-        # If execution was requested but no real command, clarify
-        typer.echo("<no real execution needed for this intent>")
+    if run_:
+        if sim_res.plan.real_cmd:
+            if confirm("Execute real command? [Y/n]: "):
+                exe_res = execute(sim_res.plan)
+                typer.echo("--- Execution Output (tail) ---")
+                typer.echo(exe_res.summary)
+            else:
+                typer.echo("Aborted real execution.")
+        else:
+            typer.echo("<no real execution needed for this intent>")
+    else:
+        typer.echo("(Real execution skipped; pass --run to attempt)")
+
+
+if __name__ == "__main__":  # pragma: no cover
+    app()
