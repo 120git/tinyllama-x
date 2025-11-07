@@ -2,14 +2,31 @@
 set -euo pipefail
 
 # tinyllama-x CLI launcher
-# Tries system install dir first, then user dir. Allow override via TINYLLAMA_X_DIR.
-APP_DIR="${TINYLLAMA_X_DIR:-/opt/tinyllama-x}"
-if [[ ! -d "$APP_DIR" ]]; then
-  APP_DIR="$HOME/.local/share/tinyllama-x"
-fi
+# Resolves install dir (env override -> system -> user), tolerating case variants.
+resolve_app_dir() {
+  local candidate
+  # 1) Explicit override
+  if [[ -n "${TINYLLAMA_X_DIR:-}" && -d "$TINYLLAMA_X_DIR" ]]; then
+    echo "$TINYLLAMA_X_DIR"; return 0
+  fi
+  # 2) System locations
+  for candidate in \
+    "/opt/TinyLlama-X" \
+    "/opt/tinyllama-x"; do
+    [[ -d "$candidate" ]] && { echo "$candidate"; return 0; }
+  done
+  # 3) User locations
+  for candidate in \
+    "$HOME/.local/share/TinyLlama-X" \
+    "$HOME/.local/share/tinyllama-x"; do
+    [[ -d "$candidate" ]] && { echo "$candidate"; return 0; }
+  done
+  return 1
+}
 
-if [[ ! -d "$APP_DIR" ]]; then
-  echo "Error: TinyLlama-X is not installed. Run: ./scripts/install_ubuntu.sh --user" >&2
+APP_DIR="$(resolve_app_dir || true)"
+if [[ -z "$APP_DIR" ]]; then
+  echo "Error: TinyLlama-X is not installed. Try: bash scripts/install_ubuntu.sh --user" >&2
   exit 1
 fi
 
