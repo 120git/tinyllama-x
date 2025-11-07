@@ -30,4 +30,24 @@ if [[ -z "$APP_DIR" ]]; then
   exit 1
 fi
 
-exec "$APP_DIR/ai_terminal_llama_simple.sh" "$@"
+# Prefer the auto-updating script; fallback to simple
+find_entry() {
+  local name="$1"; shift || true
+  local p
+  for p in \
+    "$APP_DIR/tinyllama-x/tinyllama-x/$name" \
+    "$APP_DIR/tinyllama-x/$name" \
+    "$APP_DIR/$name"; do
+    [[ -x "$p" && -s "$p" ]] && { echo "$p"; return 0; }
+  done
+  return 1
+}
+
+if entry="$(find_entry ai_terminal_llama_auto.sh)"; then
+  exec "$entry" "$@"
+elif entry="$(find_entry ai_terminal_llama_simple.sh)"; then
+  exec "$entry" "$@"
+else
+  echo "Error: Launch scripts not found under $APP_DIR" >&2
+  exit 1
+fi
