@@ -27,6 +27,7 @@ from .core.intents import (
     parse_intent,
 )
 from .core.planner import build_plan, confirm, execute, simulate
+from .core.rag import explain_command as rag_explain
 from .utils.distro import parse_os_release, preferred_pkg_manager
 
 app = typer.Typer(help="Tinyllamax intelligent CLI (simulation-first)")
@@ -109,6 +110,11 @@ def debug_intent(
     if undo:
         typer.echo(undo)
 
+    # If it's an explanation intent, show merged TLDR + man content too
+    if isinstance(intent, ExplainCommand):
+        typer.echo("--- Explanation (tldr/man) ---")
+        typer.echo(rag_explain(intent.command))
+
     sim = simulate(plan)
     typer.echo("--- Simulation Output (tail) ---")
     typer.echo(sim.summary)
@@ -138,7 +144,7 @@ def plan(
     provided = [bool(install), bool(remove), bool(search), update, upgrade, bool(explain)]
     if sum(1 for x in provided if x) != 1:
         typer.echo("Provide exactly one action flag (install/remove/search/update/upgrade/explain)", err=True)
-    raise typer.Exit(code=1) from None
+        raise typer.Exit(code=1) from None
 
     # Determine intent
     intent: IntentType
@@ -172,6 +178,11 @@ def plan(
     undo = UNDO_HINTS.get(intent.__class__)
     if undo:
         typer.echo(undo)
+
+    # For explain intent, also surface a richer merged explanation (TLDR + man) if available
+    if isinstance(intent, ExplainCommand):
+        typer.echo("--- Explanation (tldr/man) ---")
+        typer.echo(rag_explain(intent.command))
 
     sim_res = simulate(plan_obj)
     typer.echo("--- Simulation Output (tail) ---")
