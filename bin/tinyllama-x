@@ -15,7 +15,6 @@ get_version() {
     if v=$(git -C "$SCRIPT_DIR" describe --tags --dirty --always 2>/dev/null); then
       printf "%s" "$v"; return 0
     fi
-    # Try parent (installed layout may put bin/ in root)
     if v=$(git -C "$SCRIPT_DIR/.." describe --tags --dirty --always 2>/dev/null); then
       printf "%s" "$v"; return 0
     fi
@@ -60,7 +59,6 @@ resolve_app_dir() {
   for d in "${candidates[@]}"; do
     [[ -d "$d" ]] && { printf "%s" "$d"; return 0; }
   done
-  # Fallback to repo checkout parent directory
   printf "%s" "$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd)"
 }
 
@@ -82,30 +80,19 @@ find_first() {
   return 1
 }
 
-handle_args() {
-  local passthrough=()
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h|--help|help)
-        print_usage; exit 0 ;;
-      -v|--version|version)
-        echo "TinyLlama-X $(get_version)"; exit 0 ;;
-      --) shift; passthrough+=("$@"); break ;;
-      *) passthrough+=("$1") ;;
-    esac
-    shift || true
-  done
-  printf '%s\n' "${passthrough[@]}" | sed '/^$/d'
-}
-
 main() {
-  local args
-  # Capture processed args (newline separated); convert to array
-  mapfile -t args < <(handle_args "$@")
+  # Pre-parse flags directly (must exit early before launching model)
+  local passthrough=()
+  for arg in "$@"; do
+    case "$arg" in
+      -h|--help|help) print_usage; return 0 ;;
+      -v|--version|version) echo "TinyLlama-X $(get_version)"; return 0 ;;
+      --) shift; passthrough=("$@"); break ;;
+      *) passthrough+=("$arg") ;;
+    esac
+  done
 
-  local app_dir
-  app_dir="$(resolve_app_dir)"
-
+  local app_dir="$(resolve_app_dir)"
   local entry
   if ! entry="$(find_first "$app_dir" \
       ai_terminal_llama_smart.sh \
@@ -114,12 +101,11 @@ main() {
       ai_terminal_llama.sh \
       ai_terminal.sh)"; then
     err "No suitable launcher script found under $app_dir"
-    exit 1
+    return 1
   fi
-
   chmod +x "$entry" 2>/dev/null || true
   log "Starting TinyLlama-X (version: $(get_version)) via $(basename "$entry")..."
-  exec bash "$entry" "${args[@]}"
+  exec bash "$entry" "${passthrough[@]}"
 }
 
 main "$@"
