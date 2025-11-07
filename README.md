@@ -1,106 +1,128 @@
-# ![Lucky Llama-x Logo](TinyLlama-x_logo.png)
+![Lucky Llama-x Logo](TinyLlama-x_logo.png)
+
 # 🐱‍💻 TinyLlama-X
 
-**TinyLlama-X** is an all-in-one terminal AI companion for Linux, designed to assist users from **Linux newcomers to advanced users**. It leverages TinyLlama models to provide interactive AI functionality directly in your terminal, without the need for web browsers or cloud services.
+TinyLlama-X is a lightweight, local AI terminal chat for Linux using TinyLlama models. No cloud. No browser. Just your terminal.
 
 ---
 
 ## 🚀 Features
 
-- **Text Generation** – Ask questions or generate text using TinyLlama models.  
-- **Interactive Terminal AI** – Engage in a chat-like interface directly in your Linux terminal.  
-- **Lightweight and Local** – Runs fully locally, using minimal resources.  
-- **Flexible Scripts** – Multiple entry scripts for auto-start, advanced usage, and testing.  
-- **Model Management** – Easily switch between TinyLlama models.  
-- **ASCII Logo & Branding** – Fun terminal banner when starting the app.
+- Text generation and terminal chat via TinyLlama
+- Runs fully local (CPU, via llama-cpp-python)
+- Multiple launch scripts (auto/simple)
+- Ubuntu desktop integration (menu launcher + icon)
 
 ---
 
-## 🛠 Installation
+## 🛠 Quick start
 
-1. Clone the repository:
+1) Clone and enter the repo
 
 ```bash
 git clone https://github.com/120git/tinyllama-x.git
 cd tinyllama-x
+```
 
-2. Create a Python virtual environment:
+2) Create a Python virtual environment and install deps
 
+```bash
 python3 -m venv ai-env
 source ai-env/bin/activate
-
-
-3. Install dependencies:
-
-pip install --upgrade pip
 pip install -r requirements.txt
+```
 
+3) Put your TinyLlama model somewhere accessible (example path shown)
 
-4. Download or place your TinyLlama model in the models/ folder:
+```bash
+mkdir -p ~/tinyllama-x
+# place your GGUF, e.g.:
+# ~/tinyllama-x/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+```
 
-models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+4) Run the app
 
-💻 Usage
-
-Start the TinyLlama-X terminal app:
-
-./ai_terminal_llama.sh
-
-r for auto-start with your preferred model:
-
+```bash
 ./ai_terminal_llama_auto.sh
-
-
-Exit anytime by typing:
-
-exit
-
-
-📂 File Structure
-
-tinyllama-x/
-├─ ai_terminal.sh                  # Main AI terminal script
-├─ ai_terminal_llama.sh            # Llama chat script
-├─ ai_terminal_llama_auto.sh       # Auto-start Llama script
-├─ run-llama.py                    # TinyLlama launcher
-├─ run-tinyllama.py                # TinyLlama launcher
-├─ models/                         # Folder for Llama models
-│  └─ tinyllama-1.1b-chat.v1.Q4_K_M.gguf
-├─ output/                         # Generated outputs/logs
-├─ README.md                        # This file
-└─ LICENSE                         # MIT License
-
-
-⚡ Recommended Workflow
-
-1. Activate the environment:
-
-source ai-env/bin/activate
-
-2. Launch your preferred script:
-
+# or
 ./ai_terminal_llama.sh
+```
 
+Type "exit" to quit.
 
-3. Chat, explore AI capabilities, or test text generation.
+---
 
-📝 Notes
+## 🧰 Ubuntu desktop integration (menu launcher + icon)
 
-Keep large model files out of Git repository; include them in .gitignore.
+Install the global CLI and a desktop launcher.
 
-Ensure pip and Python are updated for best performance.
+System-wide (requires sudo):
 
-Terminal is optimized for Linux but should work on macOS with minor adjustments.
+```bash
+sudo bash scripts/install_ubuntu.sh --system
+```
 
-📜 License
+Per-user (no sudo):
 
-This project is licensed under the MIT License. See LICENSE
- for details.
+```bash
+bash scripts/install_ubuntu.sh --user
+```
 
-👾 ASCII Logo
+This installs:
+- CLI: tinyllama-x (in /usr/local/bin or ~/.local/bin)
+- Menu launcher: TinyLlama-X (App grid)
+- Icon: hicolor theme (PNG)
 
-  TL  <-X->
+Environment overrides supported by the launcher:
+- TINYLLAMA_X_MODEL – absolute path to your .gguf model
+- TINYLLAMA_X_VENV – path to your virtualenv (default: ~/ai-env)
+- TINYLLAMA_X_DIR   – app install dir hint used by the CLI
 
-Termininja Engaged
+Uninstall:
+
+```bash
+# System-wide
+sudo bash scripts/uninstall_ubuntu.sh --system
+
+# Per-user
+bash scripts/uninstall_ubuntu.sh
+```
+
+---
+
+## � Key files
+
+```
+tinyllama-x/
+├─ bin/
+│  └─ tinyllama-x                 # Global CLI launcher
+├─ scripts/
+│  ├─ install_ubuntu.sh           # Installer (system/user)
+│  └─ uninstall_ubuntu.sh         # Uninstaller (system/user)
+├─ resources/
+│  └─ tinyllama-x.desktop         # Desktop entry template
+├─ ai_terminal_llama_auto.sh      # Auto-start Llama script (recommended)
+├─ ai_terminal_llama.sh           # Chat launcher
+├─ ai_terminal.sh                 # Demo menu launcher
+├─ run-llama.py                   # Python-based runner (older)
+├─ run-tinyllama.py               # Python-based runner (older)
+├─ requirements.txt
+├─ LICENSE
+└─ README.md
+```
+
+---
+
+## 📝 Notes
+
+- Keep large model files out of Git (use .gitignore).
+- Update pip/Python for best performance.
+- Optimized for Linux; macOS may work with minor tweaks.
+
+---
+
+## 📜 License
+
+MIT License. See LICENSE for details.
 
 
