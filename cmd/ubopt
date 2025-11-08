@@ -1,0 +1,345 @@
+#!/usr/bin/env bash
+#
+# Cool Llama - LinuxOptimizer (ubopt)
+# Enterprise-grade, cross-distro Linux security + updater suite
+#
+set -euo pipefail
+
+VERSION="0.1.0"
+
+# Determine script directory and lib path
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$SCRIPT_DIR/.."
+
+if [[ -d "$SCRIPT_DIR/../lib" ]]; then
+    LIB_DIR="$SCRIPT_DIR/../lib"
+elif [[ -d "/usr/local/lib/ubopt" ]]; then
+    LIB_DIR="/usr/local/lib/ubopt"
+    ROOT_DIR="/usr/local/lib/ubopt"
+elif [[ -d "/usr/lib/ubopt" ]]; then
+    LIB_DIR="/usr/lib/ubopt"
+    ROOT_DIR="/usr/lib/ubopt"
+else
+    LIB_DIR="$SCRIPT_DIR/../lib"
+fi
+
+# Set paths for modules and providers
+if [[ -d "$ROOT_DIR/modules" ]]; then
+    MODULES_DIR="$ROOT_DIR/modules"
+elif [[ -d "$LIB_DIR/modules" ]]; then
+    MODULES_DIR="$LIB_DIR/modules"
+else
+    MODULES_DIR="$ROOT_DIR/modules"
+fi
+
+if [[ -d "$ROOT_DIR/providers" ]]; then
+    PROVIDERS_DIR="$ROOT_DIR/providers"
+elif [[ -d "$LIB_DIR/providers" ]]; then
+    PROVIDERS_DIR="$LIB_DIR/providers"
+else
+    PROVIDERS_DIR="$ROOT_DIR/providers"
+fi
+
+# Source common library functions
+if [[ -f "$LIB_DIR/common.sh" ]]; then
+    # shellcheck source=lib/common.sh
+    source "$LIB_DIR/common.sh"
+fi
+
+# Global flags
+OUTPUT_JSON=false
+DRY_RUN=false
+CONFIG_FILE="/etc/ubopt/config.json"
+VERBOSE=false
+
+# Output functions
+log_info() {
+    if [[ "$OUTPUT_JSON" == "true" ]]; then
+        echo "{\"level\":\"info\",\"message\":\"$*\"}"
+    else
+        echo "[INFO] $*"
+    fi
+}
+
+log_error() {
+    if [[ "$OUTPUT_JSON" == "true" ]]; then
+        echo "{\"level\":\"error\",\"message\":\"$*\"}" >&2
+    else
+        echo "[ERROR] $*" >&2
+    fi
+}
+
+log_success() {
+    if [[ "$OUTPUT_JSON" == "true" ]]; then
+        echo "{\"level\":\"success\",\"message\":\"$*\"}"
+    else
+        echo "[SUCCESS] $*"
+    fi
+}
+
+# Print usage
+print_usage() {
+    cat <<EOF
+Cool Llama - LinuxOptimizer (ubopt) v${VERSION}
+Enterprise-grade, cross-distro Linux security + updater suite
+
+Usage: ubopt [OPTIONS] COMMAND [ARGS]
+
+Global Options:
+  --json              Output in JSON format
+  --dry-run           Simulate actions without making changes
+  --config FILE       Use alternate config file (default: /etc/ubopt/config.json)
+  --verbose, -v       Enable verbose output
+  --help, -h          Show this help message
+  --version           Show version information
+
+Commands:
+  update              Update system packages
+  harden              Apply security hardening rules
+  health              Run system health checks
+  backup              Create system backup
+  benchmark           Run performance benchmarks
+  log                 View ubopt logs
+  version             Show version information
+
+Examples:
+  ubopt update --dry-run
+  ubopt harden --json
+  ubopt health --verbose
+  ubopt backup /var/backups/system
+
+Run 'ubopt COMMAND --help' for more information on a command.
+EOF
+}
+
+# Print version
+print_version() {
+    if [[ "$OUTPUT_JSON" == "true" ]]; then
+        echo "{\"version\":\"${VERSION}\",\"name\":\"ubopt\"}"
+    else
+        echo "ubopt version ${VERSION}"
+    fi
+}
+
+# Load configuration
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        log_info "Loading config from $CONFIG_FILE"
+        # Simple config loading - in production, use jq
+    else
+        if [[ "$VERBOSE" == "true" ]]; then
+            log_info "No config file found at $CONFIG_FILE, using defaults"
+        fi
+    fi
+}
+
+# Detect Linux distribution
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        echo "${ID:-unknown}"
+    else
+        echo "unknown"
+    fi
+}
+
+# Load provider based on distro
+load_provider() {
+    local distro
+    distro=$(detect_distro)
+    
+    case "$distro" in
+        ubuntu|debian)
+            PROVIDER="apt"
+            ;;
+        fedora|rhel|centos|rocky|almalinux)
+            PROVIDER="dnf"
+            ;;
+        arch|manjaro)
+            PROVIDER="pacman"
+            ;;
+        *)
+            log_error "Unsupported distribution: $distro"
+            exit 1
+            ;;
+    esac
+    
+    local provider_file="$PROVIDERS_DIR/${PROVIDER}.sh"
+    if [[ -f "$provider_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$provider_file"
+    else
+        log_error "Provider not found: $provider_file"
+        exit 1
+    fi
+}
+
+# Command implementations
+cmd_update() {
+    load_provider
+    local module_file="$MODULES_DIR/update.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        run_update "$@"
+    else
+        log_error "Update module not found"
+        exit 1
+    fi
+}
+
+cmd_harden() {
+    load_provider
+    local module_file="$MODULES_DIR/hardening.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        run_hardening "$@"
+    else
+        log_error "Hardening module not found"
+        exit 1
+    fi
+}
+
+cmd_health() {
+    load_provider
+    local module_file="$MODULES_DIR/health.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        run_health "$@"
+    else
+        log_error "Health module not found"
+        exit 1
+    fi
+}
+
+cmd_backup() {
+    local module_file="$MODULES_DIR/backup.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        run_backup "$@"
+    else
+        log_error "Backup module not found"
+        exit 1
+    fi
+}
+
+cmd_benchmark() {
+    local module_file="$MODULES_DIR/benchmark.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        run_benchmark "$@"
+    else
+        log_error "Benchmark module not found"
+        exit 1
+    fi
+}
+
+cmd_log() {
+    local module_file="$MODULES_DIR/logging.sh"
+    if [[ -f "$module_file" ]]; then
+        # shellcheck disable=SC1090
+        source "$module_file"
+        show_logs "$@"
+    else
+        log_error "Logging module not found"
+        exit 1
+    fi
+}
+
+# Main entry point
+main() {
+    # Parse global flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json)
+                OUTPUT_JSON=true
+                export OUTPUT_JSON
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                export DRY_RUN
+                shift
+                ;;
+            --config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                export VERBOSE
+                shift
+                ;;
+            --help|-h)
+                print_usage
+                exit 0
+                ;;
+            --version)
+                print_version
+                exit 0
+                ;;
+            update|harden|health|backup|benchmark|log|version)
+                COMMAND="$1"
+                shift
+                break
+                ;;
+            *)
+                log_error "Unknown option or command: $1"
+                echo ""
+                print_usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Check if command is provided
+    if [[ -z "${COMMAND:-}" ]]; then
+        log_error "No command specified"
+        echo ""
+        print_usage
+        exit 1
+    fi
+
+    # Load configuration
+    load_config
+
+    # Execute command
+    case "$COMMAND" in
+        update)
+            cmd_update "$@"
+            ;;
+        harden)
+            cmd_harden "$@"
+            ;;
+        health)
+            cmd_health "$@"
+            ;;
+        backup)
+            cmd_backup "$@"
+            ;;
+        benchmark)
+            cmd_benchmark "$@"
+            ;;
+        log)
+            cmd_log "$@"
+            ;;
+        version)
+            print_version
+            exit 0
+            ;;
+        *)
+            log_error "Unknown command: $COMMAND"
+            exit 1
+            ;;
+    esac
+}
+
+# Run main if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

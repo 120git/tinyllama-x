@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up environment
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Create release archive
+        run: |
+          mkdir -p dist
+          tar -czf dist/ubopt-${{ env.VERSION }}.tar.gz \
+            cmd/ lib/ providers/ modules/ etc/ systemd/ \
+            Makefile LICENSE README.md
+          cd dist
+          sha256sum ubopt-${{ env.VERSION }}.tar.gz > ubopt-${{ env.VERSION }}.tar.gz.sha256
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM
+        run: |
+          syft . -o json > dist/sbom.json
+          syft . -o spdx-json > dist/sbom.spdx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifacts
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cd dist
+          cosign sign-blob --yes ubopt-${{ env.VERSION }}.tar.gz \
+            --output-signature ubopt-${{ env.VERSION }}.tar.gz.sig \
+            --output-certificate ubopt-${{ env.VERSION }}.tar.gz.pem
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/ubopt-${{ env.VERSION }}.tar.gz
+            dist/ubopt-${{ env.VERSION }}.tar.gz.sha256
+            dist/ubopt-${{ env.VERSION }}.tar.gz.sig
+            dist/ubopt-${{ env.VERSION }}.tar.gz.pem
+            dist/sbom.json
+            dist/sbom.spdx.json
+          body: |
+            ## Cool Llama - LinuxOptimizer (ubopt) ${{ env.TAG }}
+            
+            Enterprise-grade, cross-distro Linux security + updater suite
+            
+            ### Installation
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ env.TAG }}/ubopt-${{ env.VERSION }}.tar.gz
+            tar -xzf ubopt-${{ env.VERSION }}.tar.gz
+            cd ubopt-${{ env.VERSION }}
+            sudo make install
+            ```
+            
+            ### Verification
+            ```bash
+            # Verify checksum
+            sha256sum -c ubopt-${{ env.VERSION }}.tar.gz.sha256
+            
+            # Verify signature (requires cosign)
+            cosign verify-blob ubopt-${{ env.VERSION }}.tar.gz \
+              --signature ubopt-${{ env.VERSION }}.tar.gz.sig \
+              --certificate ubopt-${{ env.VERSION }}.tar.gz.pem \
+              --certificate-identity-regexp=".*" \
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+            ```
+          draft: false
+          prerelease: false

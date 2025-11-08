@@ -28,3 +28,14 @@ Thumbs.db
 
 # Temporary zips or archives
 *.zip
+
+# Build artifacts
+*.log
+*~
+.bats-tmp/
+test-results/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
