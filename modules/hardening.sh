@@ -18,10 +18,10 @@ run_hardening() {
         # Check for PermitRootLogin
         if grep -q "^PermitRootLogin no" /etc/ssh/sshd_config; then
             log_info "✓ SSH: PermitRootLogin is disabled"
-            ((checks_passed++))
+            checks_passed=$((checks_passed + 1))
         else
             log_info "✗ SSH: PermitRootLogin should be disabled"
-            ((checks_failed++))
+            checks_failed=$((checks_failed + 1))
             if [[ "${DRY_RUN:-false}" == "false" ]]; then
                 # This is just a check, actual modification needs careful handling
                 log_info "  To fix: Set 'PermitRootLogin no' in /etc/ssh/sshd_config"
@@ -31,7 +31,7 @@ run_hardening() {
         # Check for PasswordAuthentication
         if grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config; then
             log_info "✓ SSH: Password authentication is disabled (key-only)"
-            ((checks_passed++))
+            checks_passed=$((checks_passed + 1))
         else
             log_info "⚠ SSH: Consider disabling password authentication"
         fi
@@ -44,10 +44,10 @@ run_hardening() {
     if command_exists ufw; then
         if ufw status | grep -q "Status: active"; then
             log_info "✓ Firewall: UFW is active"
-            ((checks_passed++))
+            checks_passed=$((checks_passed + 1))
         else
             log_info "✗ Firewall: UFW is not active"
-            ((checks_failed++))
+            checks_failed=$((checks_failed + 1))
             if [[ "${DRY_RUN:-false}" == "false" ]]; then
                 log_info "  To fix: Run 'ufw enable'"
             fi
@@ -55,10 +55,10 @@ run_hardening() {
     elif command_exists firewall-cmd; then
         if firewall-cmd --state 2>/dev/null | grep -q "running"; then
             log_info "✓ Firewall: firewalld is running"
-            ((checks_passed++))
+            checks_passed=$((checks_passed + 1))
         else
             log_info "✗ Firewall: firewalld is not running"
-            ((checks_failed++))
+            checks_failed=$((checks_failed + 1))
         fi
     else
         log_info "⚠ No firewall detected (ufw/firewalld)"
@@ -68,10 +68,10 @@ run_hardening() {
     log_info "Checking automatic updates..."
     if [[ -f /etc/apt/apt.conf.d/20auto-upgrades ]]; then
         log_info "✓ Automatic updates: configured (APT)"
-        ((checks_passed++))
+        checks_passed=$((checks_passed + 1))
     elif [[ -f /etc/dnf/automatic.conf ]]; then
         log_info "✓ Automatic updates: configured (DNF)"
-        ((checks_passed++))
+        checks_passed=$((checks_passed + 1))
     else
         log_info "⚠ Automatic updates: not configured"
     fi

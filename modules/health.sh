@@ -18,26 +18,26 @@ run_health() {
         log_info "✓ Disk space: ${disk_usage}% used (healthy)"
     elif [[ $disk_usage -lt 90 ]]; then
         log_info "⚠ Disk space: ${disk_usage}% used (warning)"
-        ((warnings++))
+        warnings=$((warnings + 1))
     else
         log_error "✗ Disk space: ${disk_usage}% used (critical)"
-        ((errors++))
+        errors=$((errors + 1))
     fi
     
     # Check memory usage
     log_info "Checking memory usage..."
     if command_exists free; then
         local mem_usage
-        mem_usage=$(free | awk 'NR==2 {printf "%.0f", $3/$2 * 100}')
+        mem_usage=$(free | awk 'NR==2 {printf "%.0f", $3/$2 * 100}' 2>/dev/null || echo "0")
         
         if [[ $mem_usage -lt 80 ]]; then
             log_info "✓ Memory usage: ${mem_usage}% (healthy)"
         elif [[ $mem_usage -lt 95 ]]; then
             log_info "⚠ Memory usage: ${mem_usage}% (warning)"
-            ((warnings++))
+            warnings=$((warnings + 1))
         else
             log_error "✗ Memory usage: ${mem_usage}% (critical)"
-            ((errors++))
+            errors=$((errors + 1))
         fi
     fi
     
@@ -53,9 +53,17 @@ run_health() {
         
         # Simple check: load > 2*cpu_count is concerning
         local load_threshold=$((cpu_count * 2))
-        if (( $(echo "$load_avg > $load_threshold" | bc -l 2>/dev/null || echo 0) )); then
+        # Use awk for floating point comparison if bc is not available
+        local is_high=0
+        if command_exists bc; then
+            is_high=$(echo "$load_avg > $load_threshold" | bc -l 2>/dev/null || echo 0)
+        else
+            is_high=$(awk -v load="$load_avg" -v thresh="$load_threshold" 'BEGIN {print (load > thresh) ? 1 : 0}')
+        fi
+        
+        if [[ $is_high -eq 1 ]]; then
             log_info "⚠ CPU load is high"
-            ((warnings++))
+            warnings=$((warnings + 1))
         else
             log_info "✓ CPU load is normal"
         fi
@@ -71,7 +79,7 @@ run_health() {
             log_info "✓ No failed services"
         else
             log_info "⚠ Failed services: $failed_services"
-            ((warnings++))
+            warnings=$((warnings + 1))
             systemctl --failed --no-legend 2>/dev/null | head -5
         fi
     fi

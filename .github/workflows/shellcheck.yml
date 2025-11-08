@@ -1,0 +1,22 @@
+name: Shellcheck
+
+on:
+  push:
+    branches: [ main, copilot/transform-ubuntoptimizer-structure ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shellcheck:
+    name: Run shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './cmd ./lib ./providers ./modules'
+          severity: warning
+          format: gcc
