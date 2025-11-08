@@ -26,15 +26,15 @@ from .core.intents import (
     UpgradeSystem,
     parse_intent,
 )
-from .core.planner import build_plan, confirm, execute, simulate, run_intent
 from .core.model import IntentDecider
-from .model_backends.ollama import OllamaBackend
+from .core.planner import build_plan, confirm, execute, run_intent, simulate
 from .model_backends.fake import FakeBackend
+from .model_backends.ollama import OllamaBackend
+
 try:  # optional llama.cpp
     from .model_backends.llamacpp import LlamaCppBackend  # type: ignore
 except Exception:  # pragma: no cover
     LlamaCppBackend = None  # type: ignore
-from .core.prompts import build_system_prompt
 from .core.rag import explain_command as rag_explain
 from .utils.distro import parse_os_release, preferred_pkg_manager
 
@@ -59,10 +59,9 @@ UNDO_HINTS = {
 }
 
 
-from typing import Optional
 
 
-def _adapter_for(pm: str, dry_run: bool) -> Optional[object]:  # placeholder for future
+def _adapter_for(pm: str, dry_run: bool) -> object | None:  # placeholder for future
     from .adapters.base import PackageManagerAdapter
     mapping: dict[str, type[PackageManagerAdapter]] = {
         "apt": AptAdapter,

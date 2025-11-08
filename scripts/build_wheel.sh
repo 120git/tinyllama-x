@@ -9,7 +9,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 echo "Building wheel and sdist..."
-python -m build --outdir dist/
+python3 -m build --no-isolation --outdir dist/
 
 echo "Build complete. Artifacts in dist/:"
 ls -lh dist/
