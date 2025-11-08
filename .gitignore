@@ -28,3 +28,13 @@ Thumbs.db
 
 # Temporary zips or archives
 *.zip
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
+out/
+
+# Security: private keys (public keys are committed)
+*.key
+cosign.key

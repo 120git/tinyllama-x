@@ -1,0 +1,251 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel setuptools
+      
+      - name: Create distribution directories
+        run: |
+          mkdir -p dist out
+      
+      # Build Python wheel
+      - name: Build Python wheel
+        run: |
+          # Fix pyproject.toml for building
+          cat > pyproject.toml.tmp <<'EOF'
+          [project]
+          name = "tinyllamax"
+          version = "0.1.0"
+          description = "Typer/Pydantic CLI utilities for TinyLlama-X"
+          authors = [{ name = "TinyLlama-X", email = "dev@example.com" }]
+          readme = "tinyllamax/README.md"
+          requires-python = ">=3.11"
+          license = { text = "MIT" }
+          dependencies = [
+            "typer>=0.12.0",
+            "pydantic>=2.6.0",
+            "pydantic-settings>=2.2.0",
+          ]
+          
+          [project.scripts]
+          tinyllamax = "tinyllamax.cli:app"
+          
+          [tool.pytest.ini_options]
+          addopts = "-q"
+          pythonpath = ["."]
+          
+          [tool.ruff]
+          line-length = 100
+          select = ["E", "F", "I", "UP", "B", "ARG"]
+          ignore = ["E203", "E501"]
+          
+          [tool.mypy]
+          python_version = "3.11"
+          strict = true
+          ignore_missing_imports = true
+          
+          [tool.typer]
+          script-name = "tinyllamax"
+          
+          [build-system]
+          requires = ["setuptools>=77.0.0", "wheel"]
+          build-backend = "setuptools.build_meta"
+          
+          [tool.setuptools.packages.find]
+          where = ["."]
+          include = ["tinyllamax*"]
+          exclude = ["lib*", "resources*", "tests*"]
+          EOF
+          
+          mv pyproject.toml pyproject.toml.bak
+          mv pyproject.toml.tmp pyproject.toml
+          
+          python -m build --wheel
+          
+          mv pyproject.toml.bak pyproject.toml
+      
+      # Create mock packages for demo (replace with real packaging later)
+      - name: Create demo packages
+        run: |
+          # Create a simple mock .deb file for demonstration
+          echo "Mock .deb package for TinyLlama-X v0.1.0" > out/tinyllamax_0.1.0_amd64.deb
+          
+          # Create a simple mock .rpm file for demonstration
+          echo "Mock .rpm package for TinyLlama-X v0.1.0" > out/tinyllamax-0.1.0-1.x86_64.rpm
+          
+          # Create a simple mock .AppImage file for demonstration
+          echo "Mock AppImage for TinyLlama-X v0.1.0" > out/TinyLlamaX-0.1.0-x86_64.AppImage
+          
+          ls -lh dist/ out/
+      
+      # Install Syft for SBOM generation
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.15.8
+      
+      # Install Cosign for signing
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.4.0
+        with:
+          cosign-release: 'v2.2.0'
+      
+      # Generate SBOMs
+      - name: Generate SBOMs
+        run: |
+          bash scripts/generate_sbom.sh
+      
+      # Sign artifacts
+      - name: Sign artifacts with Cosign
+        env:
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+        run: |
+          bash scripts/sign_artifacts.sh
+      
+      # Generate provenance
+      - name: Generate provenance
+        run: |
+          bash scripts/generate_provenance.sh
+      
+      # Verify signatures before upload
+      - name: Verify signatures
+        run: |
+          echo "🔍 Verifying artifact signatures..."
+          
+          # Verify .deb signatures
+          for file in out/*.deb; do
+            if [[ -f "$file" ]]; then
+              echo "Verifying $(basename $file)..."
+              cosign verify-blob --key resources/keys/cosign.pub \
+                --signature "$file.sig" \
+                --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+                "$file"
+              echo "✓ Signature verified for $(basename $file)"
+            fi
+          done
+          
+          # Verify .rpm signatures
+          for file in out/*.rpm; do
+            if [[ -f "$file" ]]; then
+              echo "Verifying $(basename $file)..."
+              cosign verify-blob --key resources/keys/cosign.pub \
+                --signature "$file.sig" \
+                --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+                "$file"
+              echo "✓ Signature verified for $(basename $file)"
+            fi
+          done
+          
+          # Verify .AppImage signatures
+          for file in out/*.AppImage; do
+            if [[ -f "$file" ]]; then
+              echo "Verifying $(basename $file)..."
+              cosign verify-blob --key resources/keys/cosign.pub \
+                --signature "$file.sig" \
+                --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+                "$file"
+              echo "✓ Signature verified for $(basename $file)"
+            fi
+          done
+          
+          # Verify .whl signatures
+          for file in dist/*.whl; do
+            if [[ -f "$file" ]]; then
+              echo "Verifying $(basename $file)..."
+              cosign verify-blob --key resources/keys/cosign.pub \
+                --signature "$file.sig" \
+                --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+                "$file"
+              echo "✓ Signature verified for $(basename $file)"
+            fi
+          done
+          
+          echo "✅ All signatures verified successfully!"
+      
+      # Create checksums
+      - name: Generate checksums
+        run: |
+          cd out
+          sha256sum *.deb *.rpm *.AppImage *.json 2>/dev/null | tee SHA256SUMS || true
+          cd ../dist
+          sha256sum *.whl 2>/dev/null | tee -a ../out/SHA256SUMS || true
+      
+      # Determine release tag
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+      
+      # Create GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            dist/*.whl
+            dist/*.whl.sig
+            dist/*.whl.att
+            out/*.deb
+            out/*.deb.sig
+            out/*.deb.att
+            out/*.rpm
+            out/*.rpm.sig
+            out/*.rpm.att
+            out/*.AppImage
+            out/*.AppImage.sig
+            out/*.AppImage.att
+            out/sbom-*.spdx.json
+            out/provenance.json
+            out/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Upload artifacts for debugging
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-artifacts
+          path: |
+            dist/
+            out/
+          retention-days: 30
