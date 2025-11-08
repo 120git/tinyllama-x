@@ -29,6 +29,7 @@ from .core.intents import (
 from .core.planner import build_plan, confirm, execute, simulate, run_intent
 from .core.model import IntentDecider
 from .model_backends.ollama import OllamaBackend
+from .model_backends.fake import FakeBackend
 try:  # optional llama.cpp
     from .model_backends.llamacpp import LlamaCppBackend  # type: ignore
 except Exception:  # pragma: no cover
@@ -212,6 +213,7 @@ def chat(
     backend: str = typer.Option("ollama", help="Backend to use: ollama|llamacpp"),
     model: str = typer.Option("tinyllama:latest", help="Model name or path (backend-specific)"),
     run_: bool = typer.Option(False, "--run", help="After simulation, confirm and execute real command if available"),
+    fake_json: str | None = typer.Option(None, "--fake-json", help="When --backend fake, force this JSON string as the model output"),
 ) -> None:
     """Model-driven intent classification → simulate (always) → optional confirm & execute.
 
@@ -225,6 +227,8 @@ def chat(
             typer.echo("llama.cpp backend unavailable (library not installed)", err=True)
             raise typer.Exit(code=1)
         be = LlamaCppBackend(model_path=model)
+    elif backend == "fake":
+        be = FakeBackend(forced_json=fake_json)
     else:
         typer.echo(f"Unknown backend '{backend}'", err=True)
         raise typer.Exit(code=1)
