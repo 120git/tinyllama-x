@@ -1,0 +1,94 @@
+# UbuntOptimizer Configuration File
+# Copy to /etc/ubopt/ubopt.yaml and customize as needed
+
+updates:
+  # Update schedule: daily, weekly, manual
+  schedule: "daily"
+  
+  # Automatically reboot after kernel updates
+  auto_reboot: false
+  
+  # Only apply security updates
+  security_only: false
+
+reboot:
+  # Reboot strategy: prompt, auto, never
+  strategy: "prompt"
+  
+  # Delay before reboot (minutes)
+  delay_minutes: 5
+
+hardening:
+  ssh:
+    # Disable root login via SSH
+    disable_root_login: true
+    
+    # Disable password authentication (use SSH keys only)
+    disable_password_auth: true
+    
+    # SSH port (default: 22)
+    port: 22
+  
+  firewall:
+    # Enable UFW firewall
+    enabled: true
+    
+    # Default policy: deny-by-default, allow-by-default
+    policy: "deny-by-default"
+    
+    # Allowed ports (SSH is always allowed)
+    allow_ports:
+      - 80   # HTTP
+      - 443  # HTTPS
+
+backup:
+  # Enable automatic backups
+  enabled: false
+  
+  # Backup target (local path or rsync remote)
+  target: "/mnt/backup"
+  
+  # Backup schedule: daily, weekly, monthly
+  schedule: "weekly"
+  
+  # Retention period (days)
+  retention_days: 30
+  
+  # Paths to backup
+  paths:
+    - /etc
+    - /home
+    - /var/lib/ubopt
+
+benchmark:
+  # Enable periodic benchmarks
+  enabled: false
+  
+  # Benchmark schedule
+  schedule: "monthly"
+
+report:
+  # Report output targets
+  targets:
+    - type: "file"
+      path: "/var/log/ubopt/report.json"
+    
+    - type: "prometheus"
+      path: "/var/lib/node_exporter/textfile/ubopt.prom"
+      enabled: false
+
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+  
+  # Use JSON structured logs
+  json: true
+  
+  # Log file path
+  file: "/var/log/ubopt/ubopt.log"
+  
+  # Max log file size before rotation (MB)
+  max_size_mb: 10
+  
+  # Number of rotated logs to keep
+  max_backups: 30

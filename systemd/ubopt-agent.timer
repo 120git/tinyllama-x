@@ -1,0 +1,18 @@
+[Unit]
+Description=UbuntOptimizer Agent Timer
+Documentation=https://github.com/120git/tinyllama-x
+Requires=ubopt-agent.service
+
+[Timer]
+# Run daily at 3 AM
+OnCalendar=daily
+OnCalendar=03:00
+
+# Randomize start time by up to 1 hour to avoid thundering herd
+RandomizedDelaySec=3600
+
+# Run immediately if last execution was missed (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target
