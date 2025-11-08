@@ -11,12 +11,12 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 if [[ -f "$ROOT_DIR/lib/common.sh" ]]; then
     # Running from source
     LIB_DIR="$ROOT_DIR/lib"
-    PROVIDERS_DIR="$ROOT_DIR/providers"
+    export PROVIDERS_DIR="$ROOT_DIR/providers"
     MODULES_DIR="$ROOT_DIR/modules"
 elif [[ -f "/usr/local/share/ubopt/lib/common.sh" ]]; then
     # Running from install
     LIB_DIR="/usr/local/share/ubopt/lib"
-    PROVIDERS_DIR="/usr/local/share/ubopt/providers"
+    export PROVIDERS_DIR="/usr/local/share/ubopt/providers"
     MODULES_DIR="/usr/local/share/ubopt/modules"
 else
     echo "Error: Cannot find ubopt libraries" >&2
@@ -193,17 +193,17 @@ parse_global_options() {
                 shift 2
                 ;;
             --dry-run)
-                DRY_RUN="true"
+                export DRY_RUN="true"
                 export UBOPT_DRY_RUN="true"
                 shift
                 ;;
             --json)
-                JSON_OUTPUT="true"
+                export JSON_OUTPUT="true"
                 export UBOPT_JSON_OUTPUT="true"
                 shift
                 ;;
             --headless)
-                HEADLESS="true"
+                export HEADLESS="true"
                 export UBOPT_HEADLESS="true"
                 shift
                 ;;

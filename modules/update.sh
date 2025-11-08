@@ -25,10 +25,7 @@ run_update() {
     fi
     
     # Step 2: Check for security updates
-    local has_security_updates=false
-    if security_updates_available; then
-        has_security_updates=true
-    fi
+    security_updates_available || true
     
     # Step 3: Check if any updates available
     local updates_available

@@ -26,6 +26,8 @@ DRY_RUN="${UBOPT_DRY_RUN:-false}"
 JSON_OUTPUT="${UBOPT_JSON_OUTPUT:-false}"
 HEADLESS="${UBOPT_HEADLESS:-false}"
 VERBOSE="${UBOPT_VERBOSE:-0}"
+# LOG_LEVEL is read from env but not actively used in current implementation
+# shellcheck disable=SC2034
 LOG_LEVEL="${UBOPT_LOG_LEVEL:-info}"
 
 # Detect OS and package manager

@@ -195,15 +195,12 @@ check_critical_services() {
 
 # Check memory usage
 check_memory() {
-    local total used free available
+    local total used available
     
     while IFS= read -r line; do
         case "$line" in
             MemTotal:*)
                 total=$(echo "$line" | awk '{print $2}')
-                ;;
-            MemFree:*)
-                free=$(echo "$line" | awk '{print $2}')
                 ;;
             MemAvailable:*)
                 available=$(echo "$line" | awk '{print $2}')
