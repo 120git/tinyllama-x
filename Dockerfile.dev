@@ -1,0 +1,63 @@
+# Development Dockerfile with test tools (pytest, ruff, mypy)
+# Extends the base secure Dockerfile with additional dev dependencies
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy project files needed for build
+COPY pyproject.toml ./
+COPY tinyllamax/ ./tinyllamax/
+
+# Build wheel and install to /install prefix
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    python -m build --wheel --outdir dist && \
+    pip install --no-cache-dir --prefix=/install dist/*.whl && \
+    pip install --no-cache-dir --prefix=/install pytest ruff mypy
+
+# Stage 2: Development runtime with test tools
+FROM python:3.12-slim
+
+# OCI image labels
+LABEL org.opencontainers.image.title="tinyllamax-dev"
+LABEL org.opencontainers.image.description="TinyLlama-X intelligent CLI (development with test tools)"
+LABEL org.opencontainers.image.url="https://github.com/120git/tinyllama-x"
+LABEL org.opencontainers.image.source="https://github.com/120git/tinyllama-x"
+LABEL org.opencontainers.image.vendor="120git"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Copy installed packages from builder (includes dev tools)
+COPY --from=builder /install /usr/local
+
+# Copy source code and tests for development
+COPY tinyllamax/ /home/app/tinyllamax/
+COPY tests/ /home/app/tests/
+COPY pyproject.toml /home/app/
+
+# Create non-root user (app:app, UID 10001)
+RUN adduser --disabled-password --gecos "" --uid 10001 app && \
+    chown -R app:app /home/app
+
+# Switch to non-root user
+USER app
+WORKDIR /home/app
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PATH="/usr/local/bin:${PATH}"
+
+# Default entrypoint: bash for interactive development
+ENTRYPOINT ["/bin/bash"]
+CMD []
+
+# Health check: verify dev tools are available
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["python", "-c", "import pytest, ruff, mypy"] || exit 1
