@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up environment
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck
+      
+      - name: Validate scripts
+        run: |
+          find . -name "*.sh" -type f -exec shellcheck -x {} +
+          shellcheck cmd/ubopt
+      
+      - name: Build tarball
+        run: |
+          mkdir -p dist
+          tar czf dist/ubopt-${VERSION}.tar.gz \
+            cmd/ \
+            lib/ \
+            providers/ \
+            modules/ \
+            etc/ \
+            systemd/ \
+            packaging/ \
+            docs/ \
+            Makefile \
+            README.md \
+            LICENSE
+      
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ubopt-${VERSION}.tar.gz > ubopt-${VERSION}.tar.gz.sha256
+      
+      - name: Install Syft for SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+      
+      - name: Generate SBOM
+        run: |
+          syft dir:. -o spdx-json > dist/ubopt-${VERSION}.sbom.json
+      
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      
+      - name: Sign artifacts with Cosign (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cd dist
+          cosign sign-blob --yes \
+            --bundle ubopt-${VERSION}.tar.gz.bundle \
+            ubopt-${VERSION}.tar.gz
+      
+      - name: Generate SLSA provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+        with:
+          base64-subjects: |
+            ${{ hashFiles('dist/ubopt-*.tar.gz') }}
+          upload-assets: true
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/ubopt-*.tar.gz
+            dist/ubopt-*.tar.gz.sha256
+            dist/ubopt-*.tar.gz.bundle
+            dist/ubopt-*.sbom.json
+          body: |
+            # UbuntOptimizer Release ${{ env.TAG }}
+            
+            ## Installation
+            
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ env.TAG }}/ubopt-${{ env.VERSION }}.tar.gz
+            tar xzf ubopt-${{ env.VERSION }}.tar.gz
+            cd ubopt-${{ env.VERSION }}
+            sudo make install
+            ```
+            
+            ## Verification
+            
+            Verify the checksum:
+            ```bash
+            sha256sum -c ubopt-${{ env.VERSION }}.tar.gz.sha256
+            ```
+            
+            Verify the signature (requires Cosign):
+            ```bash
+            cosign verify-blob \
+              --bundle ubopt-${{ env.VERSION }}.tar.gz.bundle \
+              ubopt-${{ env.VERSION }}.tar.gz
+            ```
+            
+            ## Changes
+            
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

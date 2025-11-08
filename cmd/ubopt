@@ -1,0 +1,490 @@
+#!/usr/bin/env bash
+# ubopt - UbuntOptimizer main entrypoint
+
+set -Eeuo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Detect if running from source or installed
+if [[ -f "$ROOT_DIR/lib/common.sh" ]]; then
+    # Running from source
+    LIB_DIR="$ROOT_DIR/lib"
+    export PROVIDERS_DIR="$ROOT_DIR/providers"
+    MODULES_DIR="$ROOT_DIR/modules"
+elif [[ -f "/usr/local/share/ubopt/lib/common.sh" ]]; then
+    # Running from install
+    LIB_DIR="/usr/local/share/ubopt/lib"
+    export PROVIDERS_DIR="/usr/local/share/ubopt/providers"
+    MODULES_DIR="/usr/local/share/ubopt/modules"
+else
+    echo "Error: Cannot find ubopt libraries" >&2
+    exit 1
+fi
+
+# Source common library
+# shellcheck source=/dev/null
+source "$LIB_DIR/common.sh"
+
+# Show usage
+usage() {
+    cat <<EOF
+Usage: ubopt [OPTIONS] COMMAND [ARGS...]
+
+UbuntOptimizer - Modular security and system maintenance suite
+
+Global Options:
+  --config PATH       Use custom config file
+  --dry-run           Show planned actions without executing
+  --json              Output JSON logs to stdout
+  --headless          Non-interactive mode (no prompts)
+  -v, --verbose       Increase verbosity (can be repeated)
+  --version           Show version and exit
+  -h, --help          Show this help
+
+Commands:
+  update              Perform system updates
+  hardening           Apply security hardening
+  health              Check and report system health
+  backup              Backup system (stub/MVP)
+  benchmark           Run system benchmarks (stub/MVP)
+  version             Show version information
+  help                Show help for a command
+
+Examples:
+  ubopt --dry-run update
+  ubopt --json health
+  ubopt hardening --ssh-only
+  ubopt --headless update --reboot-if-required
+
+See 'ubopt help COMMAND' for more information on a command.
+EOF
+}
+
+# Show command-specific help
+command_help() {
+    local command="$1"
+    
+    case "$command" in
+        update)
+            cat <<EOF
+Usage: ubopt update [OPTIONS]
+
+Perform system updates including security patches.
+
+Options:
+  --security-only        Only apply security updates
+  --reboot-if-required   Automatically reboot if kernel updated
+  --no-reboot            Never reboot even if required
+
+Exit codes:
+  0   Success, no reboot required
+  1   General error
+  2   No updates available
+  10  Reboot required
+
+Examples:
+  ubopt update
+  ubopt --dry-run update
+  ubopt update --security-only
+  ubopt --headless update --reboot-if-required
+EOF
+            ;;
+        hardening)
+            cat <<EOF
+Usage: ubopt hardening [OPTIONS]
+
+Apply security hardening baseline.
+
+Options:
+  --ssh-only         Only apply SSH hardening
+  --firewall-only    Only configure firewall
+  --skip-ssh         Skip SSH configuration
+  --skip-firewall    Skip firewall configuration
+
+Exit codes:
+  0  Success
+  1  General error
+  3  Partial failure
+
+Examples:
+  ubopt hardening
+  ubopt --dry-run hardening
+  ubopt hardening --ssh-only
+EOF
+            ;;
+        health)
+            cat <<EOF
+Usage: ubopt health [OPTIONS]
+
+Gather and report system health metrics.
+
+Options:
+  --format FORMAT    Output format: json, text, prometheus (default: json)
+  --output FILE      Write output to file instead of stdout
+
+Exit codes:
+  0  System healthy
+  1  General error
+  4  Critical issues detected
+
+Examples:
+  ubopt health
+  ubopt --json health
+  ubopt health --format prometheus --output /var/lib/node_exporter/textfile/ubopt.prom
+EOF
+            ;;
+        backup)
+            cat <<EOF
+Usage: ubopt backup [OPTIONS]
+
+Manage system backups (MVP stub - dry-run only).
+
+Options:
+  --target PATH      Backup target directory
+  --type TYPE        Backup type: full, incremental (default: full)
+
+Exit codes:
+  0  Success
+  1  General error
+  5  Backup failed
+
+Examples:
+  ubopt --dry-run backup --target /mnt/backup
+EOF
+            ;;
+        benchmark)
+            cat <<EOF
+Usage: ubopt benchmark [OPTIONS]
+
+Run system performance benchmarks (MVP stub).
+
+Options:
+  --disk       Run disk I/O benchmarks
+  --cpu        Run CPU benchmarks
+  --memory     Run memory benchmarks
+
+Exit codes:
+  0  Success
+  1  General error
+  6  Benchmark tools not available
+
+Examples:
+  ubopt benchmark
+  ubopt benchmark --disk --cpu
+EOF
+            ;;
+        *)
+            echo "Unknown command: $command"
+            echo "Run 'ubopt help' for usage."
+            exit 1
+            ;;
+    esac
+}
+
+# Parse global options in place (modifies $@)
+parse_global_options() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --config)
+                UBOPT_CONFIG="$2"
+                export UBOPT_CONFIG
+                shift 2
+                ;;
+            --dry-run)
+                export DRY_RUN="true"
+                export UBOPT_DRY_RUN="true"
+                shift
+                ;;
+            --json)
+                export JSON_OUTPUT="true"
+                export UBOPT_JSON_OUTPUT="true"
+                shift
+                ;;
+            --headless)
+                export HEADLESS="true"
+                export UBOPT_HEADLESS="true"
+                shift
+                ;;
+            -v|--verbose)
+                ((VERBOSE++))
+                export UBOPT_VERBOSE="$VERBOSE"
+                shift
+                ;;
+            --version)
+                version
+                exit 0
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                echo "Run 'ubopt --help' for usage." >&2
+                exit 125
+                ;;
+            *)
+                # Stop parsing at first non-option
+                return 0
+                ;;
+        esac
+    done
+}
+
+# Main dispatch
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+        exit 0
+    fi
+    
+    # Parse global options (modifies positional parameters)
+    parse_global_options "$@"
+    
+    # Shift past parsed global options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --config)
+                shift 2
+                ;;
+            --dry-run|--json|--headless|-v|--verbose)
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    # Get command
+    local command="${1:-}"
+    
+    if [[ -z "$command" ]]; then
+        usage
+        exit 0
+    fi
+    
+    # Dispatch to command
+    case "$command" in
+        update)
+            shift  # Remove command name
+            
+            # Parse update options
+            local security_only="false"
+            local reboot_if_required="false"
+            local no_reboot="false"
+            
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --security-only)
+                        security_only="true"
+                        shift
+                        ;;
+                    --reboot-if-required)
+                        reboot_if_required="true"
+                        shift
+                        ;;
+                    --no-reboot)
+                        no_reboot="true"
+                        shift
+                        ;;
+                    -h|--help)
+                        command_help update
+                        exit 0
+                        ;;
+                    *)
+                        echo "Unknown option for update: $1"
+                        exit 125
+                        ;;
+                esac
+            done
+            
+            # Source and run update module
+            # shellcheck source=/dev/null
+            source "$MODULES_DIR/update.sh"
+            update_module "$security_only" "$reboot_if_required" "$no_reboot"
+            exit $?
+            ;;
+            
+        hardening)
+            shift
+            
+            # Parse hardening options
+            local ssh_only="false"
+            local firewall_only="false"
+            local skip_ssh="false"
+            local skip_firewall="false"
+            
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --ssh-only)
+                        ssh_only="true"
+                        shift
+                        ;;
+                    --firewall-only)
+                        firewall_only="true"
+                        shift
+                        ;;
+                    --skip-ssh)
+                        skip_ssh="true"
+                        shift
+                        ;;
+                    --skip-firewall)
+                        skip_firewall="true"
+                        shift
+                        ;;
+                    -h|--help)
+                        command_help hardening
+                        exit 0
+                        ;;
+                    *)
+                        echo "Unknown option for hardening: $1"
+                        exit 125
+                        ;;
+                esac
+            done
+            
+            # Source and run hardening module
+            # shellcheck source=/dev/null
+            source "$MODULES_DIR/hardening.sh"
+            hardening_module "$ssh_only" "$firewall_only" "$skip_ssh" "$skip_firewall"
+            exit $?
+            ;;
+            
+        health)
+            shift
+            
+            # Parse health options
+            local format="json"
+            local output_file=""
+            
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --format)
+                        format="$2"
+                        shift 2
+                        ;;
+                    --output)
+                        output_file="$2"
+                        shift 2
+                        ;;
+                    -h|--help)
+                        command_help health
+                        exit 0
+                        ;;
+                    *)
+                        echo "Unknown option for health: $1"
+                        exit 125
+                        ;;
+                esac
+            done
+            
+            # Source and run health module
+            # shellcheck source=/dev/null
+            source "$MODULES_DIR/health.sh"
+            health_module "$format" "$output_file"
+            exit $?
+            ;;
+            
+        backup)
+            shift
+            
+            # Parse backup options
+            local target=""
+            local backup_type="full"
+            
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --target)
+                        target="$2"
+                        shift 2
+                        ;;
+                    --type)
+                        backup_type="$2"
+                        shift 2
+                        ;;
+                    -h|--help)
+                        command_help backup
+                        exit 0
+                        ;;
+                    *)
+                        echo "Unknown option for backup: $1"
+                        exit 125
+                        ;;
+                esac
+            done
+            
+            # Source and run backup module
+            # shellcheck source=/dev/null
+            source "$MODULES_DIR/backup.sh"
+            backup_module "$target" "$backup_type"
+            exit $?
+            ;;
+            
+        benchmark)
+            shift
+            
+            # Parse benchmark options
+            local run_disk="false"
+            local run_cpu="false"
+            local run_memory="false"
+            
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --disk)
+                        run_disk="true"
+                        shift
+                        ;;
+                    --cpu)
+                        run_cpu="true"
+                        shift
+                        ;;
+                    --memory)
+                        run_memory="true"
+                        shift
+                        ;;
+                    -h|--help)
+                        command_help benchmark
+                        exit 0
+                        ;;
+                    *)
+                        echo "Unknown option for benchmark: $1"
+                        exit 125
+                        ;;
+                esac
+            done
+            
+            # Source and run benchmark module
+            # shellcheck source=/dev/null
+            source "$MODULES_DIR/benchmark.sh"
+            benchmark_module "$run_disk" "$run_cpu" "$run_memory"
+            exit $?
+            ;;
+            
+        version)
+            version
+            exit 0
+            ;;
+            
+        help)
+            shift
+            if [[ $# -gt 0 ]]; then
+                command_help "$1"
+            else
+                usage
+            fi
+            exit 0
+            ;;
+            
+        *)
+            echo "Unknown command: $command"
+            echo "Run 'ubopt help' for usage."
+            exit 127
+            ;;
+    esac
+}
+
+# Run main
+main "$@"

@@ -1,0 +1,14 @@
+/var/log/ubopt/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+    sharedscripts
+    postrotate
+        # Reload or restart services if needed
+        systemctl reload rsyslog >/dev/null 2>&1 || true
+    endscript
+}
