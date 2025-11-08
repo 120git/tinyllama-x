@@ -179,6 +179,18 @@ make image-dev
 ./scripts/build_image.sh --platform linux/arm64
 ```
 
+**Note**: Local builds require Docker with buildx and proper network/SSL access to PyPI. In CI/CD environments (GitHub Actions), all network dependencies are available and the build will succeed.
+
+To test the built image:
+
+```bash
+# After building locally
+docker run --rm -it tinyllamax:local --help
+
+# Test with a simple command
+docker run --rm -it tinyllamax:local settings
+```
+
 ### Security features
 
 - **Non-root user**: Runs as `app:app` (UID 10001)

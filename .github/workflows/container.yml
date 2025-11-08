@@ -116,9 +116,13 @@ jobs:
         run: |
           # Extract first tag from metadata output
           FIRST_TAG=$(echo '${{ needs.build-and-push.outputs.image-tags }}' | head -n1)
+          DIGEST="${{ needs.build-and-push.outputs.image-digest }}"
+          # Strip sha256: prefix if present
+          DIGEST_HASH="${DIGEST#sha256:}"
           echo "tag=${FIRST_TAG}" >> $GITHUB_OUTPUT
-          echo "digest=${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_OUTPUT
-          echo "image=${FIRST_TAG}@${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_OUTPUT
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          echo "digest-hash=${DIGEST_HASH}" >> $GITHUB_OUTPUT
+          echo "image=${FIRST_TAG}@${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: Generate SBOM with Syft
         run: |
@@ -181,7 +185,7 @@ jobs:
               {
                 "name": "${{ steps.image-ref.outputs.tag }}",
                 "digest": {
-                  "sha256": "${{ needs.build-and-push.outputs.image-digest }}"
+                  "sha256": "${{ steps.image-ref.outputs.digest-hash }}"
                 }
               }
             ]
