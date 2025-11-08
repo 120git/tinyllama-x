@@ -301,5 +301,12 @@ def chat(
         typer.echo("(Real execution skipped; pass --run to attempt)")
 
 
+@app.command()
+def gui() -> None:
+    """Launch the GTK graphical user interface (placeholder)."""
+    typer.echo("GUI support coming soon. For now, use: tinyllamax chat <text>")
+    typer.echo("Install GUI dependencies: pip install tinyllamax[gui]")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build pytest mypy ruff
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Run tests
+        run: pytest -q tests/
+
+      - name: Run linters
+        run: |
+          ruff check .
+          mypy tinyllamax
+
+      - name: Install fpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential
+          sudo gem install --no-document fpm
+
+      - name: Build .deb
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }} make deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: out/*.deb
+
+  build-rpm:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          dnf install -y python3 python3-pip ruby ruby-devel gcc make redhat-rpm-config
+          gem install --no-document fpm
+
+      - name: Install Python build tools
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install build pytest mypy ruff
+
+      - name: Install package
+        run: pip3 install -e .
+
+      - name: Run tests
+        run: pytest -q tests/
+
+      - name: Run linters
+        run: |
+          ruff check .
+          mypy tinyllamax
+
+      - name: Build .rpm
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }} make rpm
+
+      - name: Upload .rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: out/*.rpm
+
+  build-appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            python3-setuptools \
+            patchelf \
+            desktop-file-utils \
+            libgdk-pixbuf2.0-dev \
+            fakeroot \
+            strace \
+            fuse \
+            libfuse2
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build pytest mypy ruff appimage-builder
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Run tests
+        run: pytest -q tests/
+
+      - name: Run linters
+        run: |
+          ruff check .
+          mypy tinyllamax
+
+      - name: Build AppImage
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }} make appimage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: out/*.AppImage
+
+  release:
+    needs: [build-deb, build-rpm, build-appimage]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} release-assets/ \;
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          ls -lh
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

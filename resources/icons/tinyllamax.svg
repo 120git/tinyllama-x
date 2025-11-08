@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#4A90E2"/>
+  <circle cx="180" cy="200" r="30" fill="#FFFFFF"/>
+  <circle cx="332" cy="200" r="30" fill="#FFFFFF"/>
+  <path d="M 160 280 Q 256 340 352 280" stroke="#FFFFFF" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <text x="256" y="420" font-family="monospace" font-size="80" font-weight="bold" fill="#FFFFFF" text-anchor="middle">λX</text>
+</svg>
