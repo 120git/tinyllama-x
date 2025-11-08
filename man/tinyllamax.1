@@ -1,0 +1,67 @@
+.TH TINYLLAMAX 1 "November 2024" "tinyllamax 0.1.0" "User Commands"
+.SH NAME
+tinyllamax \- AI Linux Co-Pilot (propose → simulate → confirm → run)
+.SH SYNOPSIS
+.B tinyllamax
+[\fIOPTIONS\fR] \fICOMMAND\fR [\fIARGS\fR]...
+.SH DESCRIPTION
+TinyLlama-X is an intelligent Linux assistant that provides a simulation-first workflow
+for system operations. It supports intent-based planning, package management across
+multiple distributions, and safe command execution with risk assessment.
+.SH COMMANDS
+.TP
+.B settings
+Display current application settings and configuration.
+.TP
+.B debug-intent
+Feed a JSON intent directly and exercise the full plan → simulate → execute workflow.
+Requires \fB\-\-json\fR parameter with raw JSON intent payload.
+.TP
+.B plan
+High-level wrapper for building an intent from flags and performing simulation-first run.
+Supports: \fB\-\-install\fR, \fB\-\-remove\fR, \fB\-\-search\fR, \fB\-\-update\fR, 
+\fB\-\-upgrade\fR, \fB\-\-explain\fR.
+.TP
+.B chat
+Model-driven intent classification with natural language input.
+Default is simulation-only. Pass \fB\-\-run\fR to attempt real execution after confirmation.
+.TP
+.B gui
+Launch the GTK graphical user interface (requires PyGObject).
+.SH OPTIONS
+.TP
+.B \-\-verbose
+Enable verbose logging output.
+.TP
+.B \-\-help
+Display help message and exit.
+.TP
+.B \-\-version
+Display version information and exit.
+.SH EXAMPLES
+.TP
+Install a package with simulation:
+.B tinyllamax plan \-\-install nginx
+.TP
+Natural language intent with model:
+.B tinyllamax chat "install docker"
+.TP
+Execute real command after simulation:
+.B tinyllamax plan \-\-install nginx \-\-real
+.SH FILES
+.TP
+.I ~/.config/tinyllamax/
+User configuration directory.
+.SH ENVIRONMENT
+.TP
+.B TINYLLAMA_X_MODEL
+Path to the TinyLlama model file (GGUF format).
+.TP
+.B TINYLLAMA_X_VENV
+Path to Python virtual environment.
+.SH SEE ALSO
+Full documentation: https://github.com/120git/tinyllama-x
+.SH BUGS
+Report bugs at: https://github.com/120git/tinyllama-x/issues
+.SH AUTHOR
+TinyLlama-X Development Team

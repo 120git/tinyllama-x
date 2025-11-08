@@ -28,3 +28,16 @@ Thumbs.db
 
 # Temporary zips or archives
 *.zip
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+out/
+AppDir/
+AppImageBuilder.yml
+
+# Package artifacts
+*.deb
+*.rpm
+*.AppImage

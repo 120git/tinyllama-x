@@ -16,7 +16,38 @@ TinyLlama-X is a lightweight, local AI terminal chat for Linux using TinyLlama m
 
 ---
 
-## 🛠 Quick start
+## 📦 Installation
+
+### Option 1: Install from Packages (Recommended)
+
+Download pre-built packages from the [latest release](https://github.com/120git/tinyllama-x/releases/latest):
+
+**Debian/Ubuntu (.deb)**:
+```bash
+wget https://github.com/120git/tinyllama-x/releases/latest/download/tinyllamax_0.1.0_all.deb
+sudo dpkg -i tinyllamax_0.1.0_all.deb
+sudo apt-get install -f  # Install dependencies if needed
+```
+
+**Fedora/RHEL (.rpm)**:
+```bash
+wget https://github.com/120git/tinyllama-x/releases/latest/download/tinyllamax-0.1.0-1.noarch.rpm
+sudo dnf install tinyllamax-0.1.0-1.noarch.rpm
+```
+
+**AppImage (Universal Linux)**:
+```bash
+wget https://github.com/120git/tinyllama-x/releases/latest/download/TinyLlamaX-0.1.0-x86_64.AppImage
+chmod +x TinyLlamaX-0.1.0-x86_64.AppImage
+./TinyLlamaX-0.1.0-x86_64.AppImage
+```
+
+After installation, you can launch TinyLlama-X from:
+- **Application menu**: Search for "TinyLlama-X"
+- **Command line**: `tinyllamax --help`
+- **GUI**: `tinyllamax gui`
+
+### Option 2: Install from Source
 
 1) Clone and enter the repo
 
@@ -31,6 +62,7 @@ cd tinyllama-x
 python3 -m venv ai-env
 source ai-env/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
 
 3) Put your TinyLlama model somewhere accessible (example path shown)
@@ -44,12 +76,9 @@ mkdir -p ~/tinyllama-x
 4) Run the app
 
 ```bash
-./bin/tinyllama-x        # preferred (auto-selects smartest launcher)
-# or run smart assistant directly
-./ai_terminal_llama_smart.sh
-# or legacy launchers
-./ai_terminal_llama_auto.sh
-./ai_terminal_llama.sh
+tinyllamax --help        # CLI help
+tinyllamax plan --install nginx  # Example: install package with simulation
+tinyllamax chat "install docker"  # Natural language commands
 ```
 
 Type "exit" to quit.
@@ -57,8 +86,8 @@ Type "exit" to quit.
 Version/help:
 
 ```bash
-./bin/tinyllama-x --version
-./bin/tinyllama-x --help
+tinyllamax --version
+tinyllamax --help
 ```
 
 ---
@@ -141,6 +170,69 @@ tinyllama-x/
 - Optimized for Linux; macOS may work with minor tweaks.
 
 For details about the intelligent assistant (intents, risk levels, TLDR/man integration, history), see `INTELLIGENCE.md`.
+
+---
+
+## 🔧 Building Packages
+
+For developers and maintainers who want to build packages locally:
+
+```bash
+# Install build dependencies
+pip install build
+
+# Build all packages
+make all
+
+# Or build individually
+make deb       # Build .deb package
+make rpm       # Build .rpm package
+make appimage  # Build AppImage
+
+# Packages will be in out/ directory
+```
+
+Requirements for building:
+- **DEB/RPM**: `fpm` (Ruby gem), installed automatically by scripts
+- **AppImage**: `appimage-builder`, installed automatically by scripts
+
+---
+
+## 🚀 Releases
+
+Releases are automated via GitHub Actions:
+1. Create and push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
+2. CI builds .deb, .rpm, and AppImage packages
+3. Packages are automatically attached to the GitHub Release
+4. SHA256 checksums are generated: `SHA256SUMS`
+
+---
+
+## 🧪 CLI Usage Examples
+
+```bash
+# Display settings
+tinyllamax settings
+
+# Install package with simulation (dry-run by default)
+tinyllamax plan --install nginx
+
+# Install package with real execution (after confirmation)
+tinyllamax plan --install nginx --real
+
+# Search for packages
+tinyllamax plan --search docker
+
+# Update package lists
+tinyllamax plan --update
+
+# Natural language commands (requires Ollama or llama.cpp)
+tinyllamax chat "install docker"
+tinyllamax chat "update my system" --run
+
+# Explain a command
+tinyllamax plan --explain "apt update"
+```
 
 ---
 
