@@ -314,5 +314,18 @@ def history(
             typer.secho(f"  Error: {rec.error_message[:100]}...", fg=typer.colors.RED)
 
 
+@app.command()
+def gui() -> None:
+    """Launch TinyLlama-X GTK desktop application."""
+    try:
+        from .gui.gtk_app import run_gui
+        run_gui()
+    except ImportError as e:
+        typer.echo(f"GUI dependencies not available: {e}", err=True)
+        typer.echo("Install with: pip install PyGObject", err=True)
+        typer.echo("Or on Ubuntu: sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0", err=True)
+        raise typer.Exit(code=1) from None
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

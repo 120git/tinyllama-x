@@ -12,6 +12,11 @@ dependencies = [
   "pydantic-settings>=2.2.0",
 ]
 
+[project.optional-dependencies]
+gui = [
+  "PyGObject>=3.42.0",
+]
+
 [project.scripts]
 tinyllamax = "tinyllamax.cli:app"
 

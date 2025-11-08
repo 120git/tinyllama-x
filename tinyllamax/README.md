@@ -4,6 +4,7 @@ Auxiliary Python CLI package for the TinyLlama-X ecosystem.
 
 ## Features
 - Typer-based CLI (`tinyllamax` entrypoint)
+- **GTK 4 Desktop GUI** for graphical interaction
 - Simulation-first propose → simulate → confirm → run planning flow
 - Distro detection + package manager adapters (apt, dnf, pacman, zypper, apk)
 - RAG-lite command help via TLDR/man (safe fallbacks)
@@ -11,8 +12,18 @@ Auxiliary Python CLI package for the TinyLlama-X ecosystem.
 - Pydantic config via env (`TINYLLAMAX_` prefix)
 - Session history tracking with SQLite database (audit trail, troubleshooting)
 
-## Installation (editable)
+## Installation
+
+### Basic Installation
 ```bash
+pip install -e .
+```
+
+### With GUI Support
+```bash
+pip install -e .[gui]
+# Or on Ubuntu/Debian:
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0
 pip install -e .
 ```
 
@@ -41,7 +52,20 @@ tinyllamax history --limit 20
 tinyllamax history --intent InstallPackage
 tinyllamax history --status failed
 tinyllamax history --stats
+
+# Launch GTK Desktop GUI
+tinyllamax gui
 ```
+
+## Desktop GUI
+The GTK 4 desktop interface provides:
+- Visual command input with intent classification
+- Propose/Simulate workflow with output console
+- Real command execution with confirmation dialogs
+- Command explanation via RAG
+- Operation history viewer with replay capability
+- Backend selection (Ollama, Llama.cpp, or Fake for testing)
+- Non-blocking operations with cancellation support
 
 ## Session History
 All operations (simulations and executions) are logged to `~/.local/share/tinyllamax/history.sqlite`. This provides:
