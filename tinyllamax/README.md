@@ -9,6 +9,7 @@ Auxiliary Python CLI package for the TinyLlama-X ecosystem.
 - RAG-lite command help via TLDR/man (safe fallbacks)
 - Model-driven intent decision (Ollama or llama.cpp) with strict JSON output
 - Pydantic config via env (`TINYLLAMAX_` prefix)
+- Session history tracking with SQLite database (audit trail, troubleshooting)
 
 ## Installation (editable)
 ```bash
@@ -32,9 +33,22 @@ tinyllamax plan --explain "ls -la"
 # Feed raw JSON intent for debugging
 tinyllamax debug-intent --json '{"intent":"InstallPackage","package":"htop"}'
 
-# Step 8: Model-driven intent decision (simulation by default; pass --run to execute)
+# Model-driven intent decision (simulation by default; pass --run to execute)
 tinyllamax chat "install htop" --backend ollama --model tinyllama:latest
+
+# View command history
+tinyllamax history --limit 20
+tinyllamax history --intent InstallPackage
+tinyllamax history --status failed
+tinyllamax history --stats
 ```
+
+## Session History
+All operations (simulations and executions) are logged to `~/.local/share/tinyllamax/history.sqlite`. This provides:
+- Audit trail of all commands executed
+- Troubleshooting aid for failed operations
+- Success rate statistics by intent type
+- Similar failure pattern detection
 
 ## Development
 Run tests and static checks:

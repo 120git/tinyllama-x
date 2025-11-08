@@ -26,15 +26,16 @@ from .core.intents import (
     UpgradeSystem,
     parse_intent,
 )
-from .core.planner import build_plan, confirm, execute, simulate, run_intent
 from .core.model import IntentDecider
-from .model_backends.ollama import OllamaBackend
+from .core.planner import build_plan, confirm, execute, run_intent, simulate
 from .model_backends.fake import FakeBackend
+from .model_backends.ollama import OllamaBackend
+
 try:  # optional llama.cpp
     from .model_backends.llamacpp import LlamaCppBackend  # type: ignore
 except Exception:  # pragma: no cover
     LlamaCppBackend = None  # type: ignore
-from .core.prompts import build_system_prompt
+from .core.history import get_history
 from .core.rag import explain_command as rag_explain
 from .utils.distro import parse_os_release, preferred_pkg_manager
 
@@ -59,10 +60,9 @@ UNDO_HINTS = {
 }
 
 
-from typing import Optional
 
 
-def _adapter_for(pm: str, dry_run: bool) -> Optional[object]:  # placeholder for future
+def _adapter_for(pm: str, dry_run: bool) -> object | None:  # placeholder for future
     from .adapters.base import PackageManagerAdapter
     mapping: dict[str, type[PackageManagerAdapter]] = {
         "apt": AptAdapter,
@@ -258,6 +258,60 @@ def chat(
             typer.echo("<no real execution needed for this intent>")
     else:
         typer.echo("(Real execution skipped; pass --run to attempt)")
+
+
+@app.command()
+def history(
+    limit: int = typer.Option(20, help="Number of recent operations to show"),
+    intent: str | None = typer.Option(None, help="Filter by intent type"),
+    status: str | None = typer.Option(None, help="Filter by status (success/failed/simulated/cancelled)"),
+    stats: bool = typer.Option(False, help="Show statistics instead of records"),
+) -> None:
+    """View command history and operation statistics."""
+    hist = get_history()
+    
+    if stats:
+        # Show statistics
+        stat_data = hist.get_stats(intent_type=intent)
+        typer.echo("=== Operation Statistics ===")
+        if intent:
+            typer.echo(f"Intent Type: {intent}")
+        typer.echo(f"Total operations: {stat_data['total']}")
+        typer.echo(f"  Success: {stat_data.get('success', 0)}")
+        typer.echo(f"  Failed: {stat_data.get('failed', 0)}")
+        typer.echo(f"  Simulated: {stat_data.get('simulated', 0)}")
+        typer.echo(f"  Cancelled: {stat_data.get('cancelled', 0)}")
+        return
+    
+    # Show operation records
+    if status:
+        records = hist.get_by_status(status, limit=limit)
+    elif intent:
+        records = hist.get_by_intent(intent, limit=limit)
+    else:
+        records = hist.get_recent(limit=limit)
+    
+    if not records:
+        typer.echo("No operations found in history.")
+        return
+    
+    typer.echo(f"=== Recent Operations (showing {len(records)}) ===")
+    for rec in records:
+        timestamp = rec.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        status_color = {
+            "success": typer.colors.GREEN,
+            "failed": typer.colors.RED,
+            "simulated": typer.colors.BLUE,
+            "cancelled": typer.colors.YELLOW,
+        }.get(rec.status, typer.colors.WHITE)
+        
+        typer.echo(f"\n[{timestamp}] {rec.intent_type}")
+        typer.echo(f"  Command: {rec.command}")
+        typer.secho(f"  Status: {rec.status}", fg=status_color)
+        if rec.output_summary:
+            typer.echo(f"  Output: {rec.output_summary[:100]}...")
+        if rec.error_message:
+            typer.secho(f"  Error: {rec.error_message[:100]}...", fg=typer.colors.RED)
 
 
 if __name__ == "__main__":  # pragma: no cover
