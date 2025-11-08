@@ -28,3 +28,9 @@ Thumbs.db
 
 # Temporary zips or archives
 *.zip
+
+# Tauri build artifacts
+gui/tauri/node_modules/
+gui/tauri/dist/
+gui/tauri/src-tauri/target/
+gui/tauri/src-tauri/Cargo.lock
