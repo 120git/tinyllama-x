@@ -28,3 +28,22 @@ Thumbs.db
 
 # Temporary zips or archives
 *.zip
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+.tox/
+htmlcov/
+
+# SBOM and provenance files (generated in CI)
+sbom-*.json
+provenance.json
+
+# Container build cache
+.docker/

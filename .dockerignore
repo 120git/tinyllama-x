@@ -1,0 +1,83 @@
+# Virtual environments
+ai-env/
+.venv/
+.env
+*.env
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+.tox/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+test_*.py
+
+# CI
+.travis.yml
+.gitlab-ci.yml
+
+# Logs and outputs
+*.log
+conversation.log
+output/
+
+# Model files (large binaries)
+*.gguf
+*.safetensors
+*.bin
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Scripts not needed in container
+scripts/install_ubuntu.sh
+scripts/uninstall_ubuntu.sh
+ai_terminal*.sh
+bin/
+lib/
+llama-*.py
+run-*.py
+tinyllama_x_smart.py
+resources/
+
+# Legacy files
+*-old.py
