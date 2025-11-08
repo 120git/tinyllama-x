@@ -147,6 +147,7 @@ def plan(
     upgrade: bool = typer.Option(False, help="Upgrade packages"),
     explain: str | None = typer.Option(None, help="Explain a command"),
     real: bool = typer.Option(False, "--real", help="Execute real command after simulation"),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON only"),
 ) -> None:
     """High-level wrapper building an intent from flags and performing simulation-first run."""
     provided = [bool(install), bool(remove), bool(search), update, upgrade, bool(explain)]
@@ -175,6 +176,30 @@ def plan(
     pm = preferred_pkg_manager(distro_id)
     plan_obj = build_plan(intent, distro_id=distro_id)
 
+    if json_out:
+        payload = {
+            "intent": intent.__class__.__name__,
+            "distro": distro_id,
+            "version": version_id,
+            "package_manager": pm,
+            "description": plan_obj.description,
+            "simulate_cmd": plan_obj.simulate_cmd,
+            "real_cmd": plan_obj.real_cmd,
+            "risk_hint": RISK_HINTS.get(intent.__class__, ""),
+        }
+        if isinstance(intent, ExplainCommand):
+            payload["explanation"] = rag_explain(intent.command)
+        sim_res = simulate(plan_obj)
+        payload["simulation_summary"] = sim_res.summary
+        exec_summary = None
+        if real and plan_obj.real_cmd and confirm("Execute real command? [Y/n]: "):
+            exec_res = execute(plan_obj)
+            exec_summary = exec_res.summary
+        if exec_summary:
+            payload["execution_summary"] = exec_summary
+        typer.echo(json.dumps(payload, ensure_ascii=False))
+        return
+
     typer.echo(f"Intent: {intent.__class__.__name__}")
     typer.echo(f"Distro: {distro_id} ({version_id}) -> PM: {pm}")
     typer.echo(f"Description: {plan_obj.description}")
@@ -187,7 +212,6 @@ def plan(
     if undo:
         typer.echo(undo)
 
-    # For explain intent, also surface a richer merged explanation (TLDR + man) if available
     if isinstance(intent, ExplainCommand):
         typer.echo("--- Explanation (tldr/man) ---")
         typer.echo(rag_explain(intent.command))
@@ -214,6 +238,7 @@ def chat(
     model: str = typer.Option("tinyllama:latest", help="Model name or path (backend-specific)"),
     run_: bool = typer.Option(False, "--run", help="After simulation, confirm and execute real command if available"),
     fake_json: str | None = typer.Option(None, "--fake-json", help="When --backend fake, force this JSON string as the model output"),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON only"),
 ) -> None:
     """Model-driven intent classification → simulate (always) → optional confirm & execute.
 
@@ -240,10 +265,26 @@ def chat(
         typer.echo(f"Failed to decide intent: {e}", err=True)
         raise typer.Exit(code=1) from None
 
-    typer.echo(f"Model intent: {intent}")
     distro_id, _version_id = parse_os_release()
     # Always simulate first
     sim_res, _ = run_intent(intent, distro_id=distro_id, execute_real=False)
+
+    if json_out:
+        payload = {
+            "intent": intent.__class__.__name__,
+            "raw_intent": intent.model_dump() if hasattr(intent, "model_dump") else intent.__dict__,
+            "distro": distro_id,
+            "simulate_cmd": sim_res.plan.simulate_cmd,
+            "real_cmd": sim_res.plan.real_cmd,
+            "simulation_summary": sim_res.summary,
+        }
+        if run_ and sim_res.plan.real_cmd and confirm("Execute real command? [Y/n]: "):
+            exe_res = execute(sim_res.plan)
+            payload["execution_summary"] = exe_res.summary
+        typer.echo(json.dumps(payload, ensure_ascii=False))
+        return
+
+    typer.echo(f"Model intent: {intent}")
     typer.echo("--- Simulation Output (tail) ---")
     typer.echo(sim_res.summary)
     if run_:

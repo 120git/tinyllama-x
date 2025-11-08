@@ -34,6 +34,25 @@ tinyllamax debug-intent --json '{"intent":"InstallPackage","package":"htop"}'
 
 # Step 8: Model-driven intent decision (simulation by default; pass --run to execute)
 tinyllamax chat "install htop" --backend ollama --model tinyllama:latest
+
+## Developer tips
+
+- Fake backend for demos/tests (no Ollama needed):
+	- Simulation-only (JSON extracted from heuristics):
+		```bash
+		tinyllamax chat "install htop" --backend fake
+		tinyllamax chat "search for curl" --backend fake
+		tinyllamax chat "what does ls do?" --backend fake
+		```
+	- Force exact JSON for reproducible tests:
+		```bash
+		tinyllamax chat "ignored" --backend fake --fake-json '{"intent":"DetectDistro"}'
+		```
+	- Emit machine-readable output:
+		```bash
+		tinyllamax chat "install htop" --backend fake --json
+		tinyllamax plan --search curl --json
+		```
 ```
 
 ## Development
