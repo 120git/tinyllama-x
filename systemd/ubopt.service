@@ -1,0 +1,22 @@
+[Unit]
+Description=Cool Llama - LinuxOptimizer (ubopt) System Update
+Documentation=man:ubopt(1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ubopt update
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ubopt
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log /var/lib/apt /var/cache/apt /var/lib/dnf /var/cache/dnf /var/lib/pacman
+
+[Install]
+WantedBy=multi-user.target

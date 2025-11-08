@@ -1,0 +1,26 @@
+{
+  "update": {
+    "enabled": true,
+    "auto_clean": true,
+    "auto_remove": true
+  },
+  "hardening": {
+    "enabled": true,
+    "ssh_check": true,
+    "firewall_check": true
+  },
+  "backup": {
+    "enabled": true,
+    "directory": "/var/backups/ubopt",
+    "retention_count": 5
+  },
+  "logging": {
+    "enabled": true,
+    "log_file": "/var/log/ubopt.log",
+    "log_level": "info"
+  },
+  "notifications": {
+    "enabled": false,
+    "email": ""
+  }
+}

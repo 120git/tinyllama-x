@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily system update timer for ubopt
+Documentation=man:ubopt(1)
+
+[Timer]
+# Run daily at 3 AM
+OnCalendar=daily
+OnCalendar=*-*-* 03:00:00
+
+# Run 15 minutes after boot if we missed the scheduled time
+OnBootSec=15min
+
+# Randomize start time by up to 1 hour to avoid server load spikes
+RandomizedDelaySec=1h
+
+Persistent=true
+
+[Install]
+WantedBy=timers.target
