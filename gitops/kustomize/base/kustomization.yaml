@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - tinyllamax-controlplane-deployment.yaml
+  - tinyllamax-agent-daemonset.yaml
+  - ../../policy/podsecurity/tinyllamax-podsecurity.yaml
+
+namespace: tinyllamax
+
+commonLabels:
+  app.kubernetes.io/name: tinyllamax
+  app.kubernetes.io/part-of: tinyllamax-federation
+
+images:
+  - name: ghcr.io/120git/tinyllama-x-controlplane
+    newTag: latest
+  - name: ghcr.io/120git/tinyllama-x-agent
+    newTag: latest
