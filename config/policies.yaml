@@ -1,0 +1,164 @@
+﻿# TinyLlama-X Policy Configuration
+# Runtime policies and enforcement rules
+
+# Policy metadata
+metadata:
+  version: "1.0.0"
+  last_updated: "2025-11-15T00:00:00Z"
+  description: "TinyLlama-X runtime policies"
+
+# Enforcement configuration
+enforcement:
+  mode: enforce  # enforce, audit, warn
+  fail_open: false  # Allow operations if policy check fails
+  log_violations: true
+  alert_on_violations: true
+
+# Container runtime policies
+container:
+  # Image policies
+  images:
+    require_signature: true
+    allowed_registries:
+      - ghcr.io/120git
+      - docker.io/library
+      - registry.k8s.io
+    disallow_latest_tag: true
+    scan_for_vulnerabilities: true
+    max_critical_vulnerabilities: 0
+    max_high_vulnerabilities: 5
+  
+  # Security context policies
+  security_context:
+    require_nonroot: true
+    require_readonly_fs: true
+    disallow_privilege_escalation: true
+    drop_all_capabilities: true
+    allowed_capabilities: []
+    required_seccomp_profile: RuntimeDefault
+    allow_host_network: false
+    allow_host_pid: false
+    allow_host_ipc: false
+
+# Package manager policies
+package_manager:
+  # Operation restrictions
+  operations:
+    allow_install: true
+    allow_remove: true
+    allow_upgrade: true
+    allow_downgrade: false
+    require_dry_run: false  # Force dry-run for all operations
+  
+  # Ephemeral operations (containers only)
+  ephemeral:
+    allow_ephemeral_remove: false  # Allow removing packages in containers
+    allow_ephemeral_install: true
+    restore_on_exit: false
+  
+  # Restricted operations
+  restricted:
+    disallow_kernel_updates: true
+    disallow_system_critical_packages: true
+    critical_packages:
+      - systemd
+      - init
+      - kernel
+      - glibc
+      - bash
+  
+  # Repository policies
+  repositories:
+    allow_third_party: false
+    allowed_ppa_list: []
+    require_gpg_verification: true
+
+# Command execution policies
+commands:
+  # Allowed operations
+  allow_list:
+    enabled: false
+    commands: []
+  
+  # Denied operations
+  deny_list:
+    enabled: true
+    commands:
+      - rm -rf /
+      - dd if=/dev/zero
+      - :(){ :|:& };:  # Fork bomb
+      - mkfs
+    patterns:
+      - ".*>/dev/sd[a-z].*"  # Direct disk writes
+  
+  # Sudo policies
+  sudo:
+    allow_sudo: true
+    require_password: true
+    log_all_sudo: true
+
+# Network policies
+network:
+  # Egress restrictions
+  egress:
+    allow_all: false
+    allowed_destinations:
+      - control-plane.tinyllamax.io
+      - "*.ubuntu.com"
+      - "*.debian.org"
+      - "*.fedoraproject.org"
+    allowed_ports:
+      - 80
+      - 443
+      - 8000
+  
+  # Ingress restrictions
+  ingress:
+    allow_all: false
+    allowed_sources: []
+
+# Audit and compliance
+audit:
+  enabled: true
+  log_all_commands: true
+  log_policy_decisions: true
+  log_config_changes: true
+  retention_days: 90
+  
+  # Compliance frameworks
+  compliance:
+    cis_benchmark: true
+    pci_dss: false
+    hipaa: false
+    soc2: true
+
+# Feature flags for policy enforcement
+features:
+  enable_signature_verification: true
+  enable_vulnerability_scanning: true
+  enable_runtime_protection: true
+  enable_network_policies: true
+  enable_audit_logging: true
+
+# Rollback configuration
+rollback:
+  enabled: true
+  automatic: true
+  max_rollback_attempts: 3
+  rollback_on_failure: true
+  preserve_backups: 5
+
+# Notification configuration
+notifications:
+  enabled: true
+  channels:
+    - slack
+    - email
+  severity_threshold: high  # low, medium, high, critical
+  
+  # Notification events
+  events:
+    policy_violation: true
+    config_change: true
+    security_incident: true
+    service_degraded: true
