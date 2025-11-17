@@ -144,6 +144,62 @@ For details about the intelligent assistant (intents, risk levels, TLDR/man inte
 
 ---
 
+## 🔒 Security - Verifying Downloads
+
+All release artifacts (`.deb`, `.rpm`, `.AppImage`, `.whl`) are signed using [Cosign](https://github.com/sigstore/cosign) and include Software Bill of Materials (SBOM) for supply-chain transparency.
+
+### Verify artifact signatures
+
+Download the artifact and its `.sig` file from the [releases page](https://github.com/120git/tinyllama-x/releases), then verify:
+
+```bash
+# Install Cosign (if not already installed)
+curl -Lo cosign https://github.com/sigstore/cosign/releases/download/v2.2.0/cosign-linux-amd64
+chmod +x cosign
+sudo mv cosign /usr/local/bin/
+
+# Download the public key
+curl -O https://raw.githubusercontent.com/120git/tinyllama-x/main/resources/keys/cosign.pub
+
+# Verify a signature (example with AppImage)
+cosign verify-blob --key cosign.pub \
+  --signature TinyLlamaX-0.1.0-x86_64.AppImage.sig \
+  --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+  TinyLlamaX-0.1.0-x86_64.AppImage
+
+# Verify a wheel
+cosign verify-blob --key cosign.pub \
+  --signature tinyllamax-0.1.0-py3-none-any.whl.sig \
+  --insecure-ignore-tlog=true --insecure-ignore-sct=true \
+  tinyllamax-0.1.0-py3-none-any.whl
+```
+
+### Inspect SBOM
+
+Each release includes SBOM files in SPDX JSON format. You can inspect them with [Syft](https://github.com/anchore/syft):
+
+```bash
+# Install Syft
+curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+# View SBOM for an artifact
+syft scan sbom-wheel.spdx.json
+
+# Or scan an artifact directly
+syft packages TinyLlamaX-0.1.0-x86_64.AppImage
+```
+
+### Provenance attestation
+
+Each release includes a `provenance.json` file containing:
+- GitHub Actions workflow run URL
+- Commit SHA and build timestamp
+- SHA-256 checksums of all artifacts
+
+This provides transparency about how and where artifacts were built.
+
+---
+
 ## 📜 License
 
 MIT License. See LICENSE for details.
